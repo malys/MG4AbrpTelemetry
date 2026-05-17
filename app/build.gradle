@@ -10,6 +10,15 @@ android {
         }
     }
 
+    signingConfigs {
+        platform {
+            storeFile     file("***REMOVED-KEYSTORE-PATH***")
+            storePassword System.getenv("ABRP_KEYSTORE_PASSWORD")
+            keyAlias      "platform"
+            keyPassword System.getenv("ABRP_KEY_PASSWORD")
+        }
+    }
+
     defaultConfig {
         applicationId "com.leonkernan.abrp_uploader"
         minSdk 27
@@ -21,14 +30,28 @@ android {
     }
 
     buildTypes {
+        debug {
+            signingConfig signingConfigs.platform
+        }
         release {
             minifyEnabled false
+            signingConfig signingConfigs.platform
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
+    }
+}
+
+tasks.register('listKeystoreAliases') {
+    doLast {
+        def ks = java.security.KeyStore.getInstance("JKS")
+        new File("***REMOVED-KEYSTORE-PATH***").withInputStream { stream ->
+            ks.load(stream, System.getenv("ABRP_KEYSTORE_PASSWORD").toCharArray())
+        }
+        ks.aliases().each { println "ALIAS: ${it}" }
     }
 }
 
