@@ -50,7 +50,7 @@ public class AbrpUploadService extends Service {
     private static final String TAG             = "AbrpUploadService";
     private static final String CHANNEL_ID      = "abrp_uploader";
     private static final int    NOTIF_ID        = 1;
-    private static final long   UPLOAD_INTERVAL_SEC = 5;
+    private static final long   UPLOAD_INTERVAL_SEC = 15;
     private static final long   CAR_RECONNECT_INTERVAL_SEC = 30;
     private static final String API_URL         = "https://api.iternio.com/1/tlm/send";
 
