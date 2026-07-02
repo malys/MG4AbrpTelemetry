@@ -29,7 +29,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Foreground service that polls vehicle telemetry every 5 s and pushes it to ABRP.
+ * Foreground service that polls vehicle telemetry every 15 s and pushes it to ABRP.
  *
  * Reliability design:
  *  - Uses ScheduledExecutorService (not Handler chains) so exceptions inside one
@@ -93,7 +93,7 @@ public class AbrpUploadService extends Service {
         // between cycles even if a previous upload was slow.
         scheduler.scheduleWithFixedDelay(
                 this::safeUploadCycle,
-                3, UPLOAD_INTERVAL_SEC, TimeUnit.SECONDS);
+                45, UPLOAD_INTERVAL_SEC, TimeUnit.SECONDS);
 
         Log.i(TAG, "Service started, upload scheduler armed");
     }
@@ -328,7 +328,7 @@ public class AbrpUploadService extends Service {
             locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
             if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
                 locationManager.requestLocationUpdates(
-                        LocationManager.GPS_PROVIDER, 3_000, 0f,
+                        LocationManager.GPS_PROVIDER, 10_000, 0f,
                         locationListener, Looper.getMainLooper());
                 Location last = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
                 if (last != null) lastLocation = last;
