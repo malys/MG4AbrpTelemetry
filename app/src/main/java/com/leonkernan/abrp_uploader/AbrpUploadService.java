@@ -231,35 +231,15 @@ public class AbrpUploadService extends Service {
         long utc = System.currentTimeMillis() / 1000;
         Location loc = lastLocation;
 
-        // Build telemetry JSON. Always include utc; only include vehicle-derived
-        // fields if we actually have a live car link (avoid blasting zeros).
-        StringBuilder tlm = new StringBuilder("{\"utc\":").append(utc);
-        if (carUp) {
-            tlm.append(",\"soc\":").append(soc)
-               .append(",\"speed\":").append(Math.round(speedKmh))
-               .append(",\"est_battery_range\":").append(rangeKm)
-               .append(",\"ext_temp\":").append(Math.round(extTemp))
-               .append(",\"power\":").append(String.format(java.util.Locale.US, "%.2f", powerKw))
-               .append(",\"is_charging\":").append(charging ? 1 : 0)
-               .append(",\"is_dcfc\":").append(dcfc ? 1 : 0)
-               .append(",\"is_parked\":").append(parked ? 1 : 0);
-            // Only send cabin_temp if we got a plausible reading — 0.0 likely
-            // means the property isn't supported on this VHAL.
-            if (cabinTemp > -50f && cabinTemp < 80f && cabinTemp != 0f) {
-                tlm.append(",\"cabin_temp\":").append(Math.round(cabinTemp));
-            }
-        }
-        if (loc != null) {
-            tlm.append(",\"lat\":").append(loc.getLatitude());
-            tlm.append(",\"lon\":").append(loc.getLongitude());
-            if (loc.hasAltitude())
-                tlm.append(",\"elevation\":").append(Math.round(loc.getAltitude()));
-            if (loc.hasBearing())
-                tlm.append(",\"heading\":").append(Math.round(loc.getBearing()));
-        }
-        tlm.append("}");
+        String tlm = TelemetryPayload.build(
+                utc, carUp, soc, speedKmh, rangeKm, extTemp, powerKw,
+                charging, dcfc, parked, cabinTemp,
+                loc != null ? loc.getLatitude()  : null,
+                loc != null ? loc.getLongitude() : null,
+                (loc != null && loc.hasAltitude()) ? loc.getAltitude() : null,
+                (loc != null && loc.hasBearing()) ? loc.getBearing()  : null);
 
-        sendToAbrp(apiKey, token, tlm.toString(), soc, speedKmh, carUp);
+        sendToAbrp(apiKey, token, tlm, soc, speedKmh, carUp);
     }
 
     private void sendToAbrp(String apiKey, String token, String tlmJson,
