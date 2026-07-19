@@ -18,12 +18,6 @@ import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -52,7 +46,6 @@ public class AbrpUploadService extends Service {
     private static final int    NOTIF_ID        = 1;
     private static final long   UPLOAD_INTERVAL_SEC = 15;
     private static final long   CAR_RECONNECT_INTERVAL_SEC = 30;
-    private static final String API_URL         = "https://api.iternio.com/1/tlm/send";
 
     // Set from the main thread (LocationListener uses Main looper), read from
     // the scheduler thread inside doUpload. volatile is sufficient since Location
@@ -63,6 +56,8 @@ public class AbrpUploadService extends Service {
     private LocationManager      locationManager;
     private ScheduledExecutorService scheduler;
     private SharedPreferences    prefs;
+    /** Credentials only — encrypted at rest, see {@link SecurePrefs}. */
+    private SharedPreferences    securePrefs;
     private Handler              mainHandler;
 
     private volatile long lastSuccessfulUploadMs = 0L;
@@ -74,6 +69,7 @@ public class AbrpUploadService extends Service {
     public void onCreate() {
         super.onCreate();
         prefs       = getSharedPreferences("abrp_prefs", MODE_PRIVATE);
+        securePrefs = SecurePrefs.get(this);
         mainHandler = new Handler(Looper.getMainLooper());
         scheduler   = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "abrp-upload");
@@ -174,8 +170,8 @@ public class AbrpUploadService extends Service {
     }
 
     private void doUpload() {
-        String token  = prefs.getString("token",   "").trim();
-        String apiKey = prefs.getString("api_key", "").trim();
+        String token  = securePrefs.getString(SecurePrefs.KEY_TOKEN,   "").trim();
+        String apiKey = securePrefs.getString(SecurePrefs.KEY_API_KEY, "").trim();
 
         if (token.isEmpty()) {
             updateNotification("No ABRP token — open app to configure");
@@ -244,27 +240,12 @@ public class AbrpUploadService extends Service {
 
     private void sendToAbrp(String apiKey, String token, String tlmJson,
                             int soc, float speedKmh, boolean carUp) {
-        HttpURLConnection conn = null;
         try {
-            String urlStr = API_URL
-                    + "?api_key=" + URLEncoder.encode(apiKey, StandardCharsets.UTF_8.name())
-                    + "&token="   + URLEncoder.encode(token,  StandardCharsets.UTF_8.name())
-                    + "&tlm="     + URLEncoder.encode(tlmJson, StandardCharsets.UTF_8.name());
+            AbrpApi.Response response = AbrpApi.send(apiKey, token, tlmJson);
+            int code = response.code;
 
-            conn = (HttpURLConnection) new URL(urlStr).openConnection();
-            conn.setRequestMethod("GET");
-            conn.setConnectTimeout(8_000);
-            conn.setReadTimeout(8_000);
-
-            int code = conn.getResponseCode();
-            BufferedReader br = new BufferedReader(new InputStreamReader(
-                    code == 200 ? conn.getInputStream() : conn.getErrorStream()));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = br.readLine()) != null) sb.append(line);
-            br.close();
-
-            Log.d(TAG, "ABRP [" + code + "]: " + sb);
+            // The response body can echo request details — debug builds only.
+            if (BuildConfig.DEBUG) Log.d(TAG, "ABRP [" + code + "]: " + response.body);
 
             if (code == 200) {
                 lastSuccessfulUploadMs = System.currentTimeMillis();
@@ -289,8 +270,6 @@ public class AbrpUploadService extends Service {
             Log.e(TAG, "Upload failed", e);
             prefs.edit().putString("last_upload_status",
                     e.getClass().getSimpleName() + ": " + e.getMessage()).apply();
-        } finally {
-            if (conn != null) conn.disconnect();
         }
     }
 

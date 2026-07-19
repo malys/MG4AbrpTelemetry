@@ -1,13 +1,10 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample backup rules file; uncomment and customize as necessary.
-   See https://developer.android.com/guide/topics/data/autobackup
-   for details.
-   Note: This file is ignored for devices older than API 31
-   See https://developer.android.com/about/versions/12/backup-restore
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+   Backups are disabled outright (android:allowBackup="false"). These rules are
+   the belt-and-braces layer: the credential store must never leave the device
+   even if backups are re-enabled by mistake.
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <exclude domain="sharedpref" path="abrp_secure_prefs.xml"/>
+    <exclude domain="sharedpref" path="abrp_prefs.xml"/>
 </full-backup-content>

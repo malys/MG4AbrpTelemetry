@@ -18,12 +18,6 @@ import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -44,6 +38,8 @@ public class MainActivity extends AppCompatActivity {
     private View              connectionIndicator;
     private TextView          connectionStatusText;
     private SharedPreferences prefs;
+    /** Credentials only — encrypted at rest, see {@link SecurePrefs}. */
+    private SharedPreferences securePrefs;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,6 +47,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         prefs = getSharedPreferences("abrp_prefs", MODE_PRIVATE);
+        securePrefs = SecurePrefs.get(this);
 
         apiKeyLayout        = findViewById(R.id.api_key_layout);
         apiKeyInput         = findViewById(R.id.api_key_input);
@@ -63,8 +60,8 @@ public class MainActivity extends AppCompatActivity {
         connectionIndicator = findViewById(R.id.connection_indicator);
         connectionStatusText = findViewById(R.id.connection_status_text);
 
-        apiKeyInput.setText(prefs.getString("api_key", ""));
-        tokenInput.setText(prefs.getString("token", ""));
+        apiKeyInput.setText(securePrefs.getString(SecurePrefs.KEY_API_KEY, ""));
+        tokenInput.setText(securePrefs.getString(SecurePrefs.KEY_TOKEN, ""));
         serviceSwitch.setChecked(prefs.getBoolean("service_enabled", false));
 
         // If the user wants the service running, kick it on every activity launch.
@@ -74,8 +71,8 @@ public class MainActivity extends AppCompatActivity {
         // previous process was force-killed (e.g. by `adb install -r`) without
         // onDestroy running.
         boolean enabled = prefs.getBoolean("service_enabled", false);
-        boolean haveCreds = !prefs.getString("token",   "").trim().isEmpty()
-                         && !prefs.getString("api_key", "").trim().isEmpty();
+        boolean haveCreds = !securePrefs.getString(SecurePrefs.KEY_TOKEN, "").trim().isEmpty()
+                         && !securePrefs.getString(SecurePrefs.KEY_API_KEY, "").trim().isEmpty();
         if (enabled && haveCreds) {
             startForegroundService(new Intent(this, AbrpUploadService.class));
             requestLocationPermissionIfNeeded();
@@ -110,8 +107,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        apiKeyInput.setText(prefs.getString("api_key", ""));
-        tokenInput.setText(prefs.getString("token", ""));
+        apiKeyInput.setText(securePrefs.getString(SecurePrefs.KEY_API_KEY, ""));
+        tokenInput.setText(securePrefs.getString(SecurePrefs.KEY_TOKEN, ""));
         serviceSwitch.setChecked(prefs.getBoolean("service_enabled", false));
         refreshStatus();
     }
@@ -137,9 +134,9 @@ public class MainActivity extends AppCompatActivity {
         }
         if (!valid) return;
 
-        prefs.edit()
-                .putString("api_key", apiKey)
-                .putString("token",   token)
+        securePrefs.edit()
+                .putString(SecurePrefs.KEY_API_KEY, apiKey)
+                .putString(SecurePrefs.KEY_TOKEN,   token)
                 .apply();
 
         if (serviceSwitch.isChecked()) {
@@ -181,33 +178,14 @@ public class MainActivity extends AppCompatActivity {
      * Returns null on success, or a short error string on failure.
      */
     private String pingAbrp(String apiKey, String token) {
-        HttpURLConnection conn = null;
         try {
             // Minimal valid telemetry payload
             String tlm = "{\"utc\":" + (System.currentTimeMillis() / 1000) + ",\"soc\":0}";
-            String urlStr = "https://api.iternio.com/1/tlm/send"
-                    + "?api_key=" + URLEncoder.encode(apiKey, StandardCharsets.UTF_8.name())
-                    + "&token="   + URLEncoder.encode(token,  StandardCharsets.UTF_8.name())
-                    + "&tlm="     + URLEncoder.encode(tlm,    StandardCharsets.UTF_8.name());
+            AbrpApi.Response response = AbrpApi.send(apiKey, token, tlm);
 
-            conn = (HttpURLConnection) new URL(urlStr).openConnection();
-            conn.setRequestMethod("GET");
-            conn.setConnectTimeout(8_000);
-            conn.setReadTimeout(8_000);
-
-            int code = conn.getResponseCode();
-            if (code == 200) return null;
-
-            // Read error body for a more helpful message
-            BufferedReader br = new BufferedReader(
-                    new InputStreamReader(conn.getErrorStream()));
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = br.readLine()) != null) sb.append(line);
-            br.close();
-
-            if (code == 401) return getString(R.string.conn_err_auth);
-            return getString(R.string.conn_err_http, code);
+            if (response.code == 200) return null;
+            if (response.code == 401) return getString(R.string.conn_err_auth);
+            return getString(R.string.conn_err_http, response.code);
 
         } catch (java.net.UnknownHostException e) {
             return getString(R.string.conn_err_no_internet);
@@ -215,8 +193,6 @@ public class MainActivity extends AppCompatActivity {
             return getString(R.string.conn_err_timeout);
         } catch (Exception e) {
             return e.getMessage();
-        } finally {
-            if (conn != null) conn.disconnect();
         }
     }
 
