@@ -10,12 +10,17 @@ android {
         }
     }
 
+    // Signature avec la clé plateforme de la ROM. Secrets lus depuis l'environnement
+    // (CI) ou gradle.properties local — JAMAIS commités. Même schéma que MG4Control.
+    def keystorePath = System.getenv("ABRP_KEYSTORE") ?: project.findProperty("abrp.keystore")
     signingConfigs {
-        platform {
-            storeFile     file("***REMOVED-KEYSTORE-PATH***")
-            storePassword System.getenv("ABRP_KEYSTORE_PASSWORD")
-            keyAlias      "platform"
-            keyPassword System.getenv("ABRP_KEY_PASSWORD")
+        if (keystorePath != null && file(keystorePath).exists()) {
+            platform {
+                storeFile     file(keystorePath)
+                storePassword System.getenv("ABRP_KEYSTORE_PASSWORD") ?: project.findProperty("abrp.keystore.password")
+                keyAlias      System.getenv("ABRP_KEY_ALIAS") ?: project.findProperty("abrp.key.alias") ?: "platform"
+                keyPassword   System.getenv("ABRP_KEY_PASSWORD") ?: project.findProperty("abrp.key.password")
+            }
         }
     }
 
@@ -29,29 +34,23 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // null quand aucun keystore n'est configuré : le build reste possible sur une
+    // machine sans secrets (APK non signé), au lieu d'échouer.
+    def platformSigning = signingConfigs.findByName("platform")
+
     buildTypes {
         debug {
-            signingConfig signingConfigs.platform
+            if (platformSigning != null) signingConfig platformSigning
         }
         release {
             minifyEnabled false
-            signingConfig signingConfigs.platform
+            if (platformSigning != null) signingConfig platformSigning
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
-    }
-}
-
-tasks.register('listKeystoreAliases') {
-    doLast {
-        def ks = java.security.KeyStore.getInstance("JKS")
-        new File("***REMOVED-KEYSTORE-PATH***").withInputStream { stream ->
-            ks.load(stream, System.getenv("ABRP_KEYSTORE_PASSWORD").toCharArray())
-        }
-        ks.aliases().each { println "ALIAS: ${it}" }
     }
 }
 
