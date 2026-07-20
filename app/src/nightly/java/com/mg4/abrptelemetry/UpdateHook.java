@@ -7,6 +7,7 @@ import android.util.Log;
 import android.widget.Toast;
 
 import java.io.File;
+import java.util.Locale;
 
 /**
  * Nightly channel: checks GitHub pre-releases and downloads a newer nightly APK.
@@ -18,6 +19,12 @@ import java.io.File;
 final class UpdateHook {
 
     private static final String TAG = "UpdateHook";
+
+    private static String safeVersionComponent(String versionName) {
+        if (versionName == null || versionName.isEmpty()) return "unknown";
+        String normalized = versionName.toLowerCase(Locale.US);
+        return normalized.replaceAll("[^a-z0-9._-]", "_");
+    }
 
     private UpdateHook() { }
 
@@ -40,9 +47,10 @@ final class UpdateHook {
 
                 // Anything already downloaded is verified before the user is pointed at it:
                 // a file in public Downloads can be swapped by another app.
+                String safeVersionName = safeVersionComponent(update.versionName);
                 File existing = new File(
                         Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                        "MG4AbrpTelemetry-nightly-" + update.versionName + ".apk");
+                        "MG4AbrpTelemetry-nightly-" + safeVersionName + ".apk");
                 if (existing.isFile()) {
                     if (!OtaUpdater.signatureMatchesRunningApp(app, existing)) {
                         // Signed by someone else: delete rather than leave it where a user
