@@ -102,9 +102,18 @@ mise run build        # debug APK
 Without mise: set `JAVA_HOME` to a JDK 17, write `sdk.dir` into `local.properties`, then
 `./gradlew assembleStableDebug`.
 
-Release builds are signed from environment variables — `ABRP_KEYSTORE`,
-`ABRP_KEYSTORE_PASSWORD`, `ABRP_KEY_ALIAS`, `ABRP_KEY_PASSWORD`. **Never commit a
-keystore or a password.**
+Release builds are signed from environment variables. These sign the **APK** and have
+nothing to do with your ABRP API key, which you type into the app itself:
+
+| Variable | What it is |
+|---|---|
+| `SIGNING_KEYSTORE` | Path to the keystore file (CI decodes `SIGNING_KEYSTORE_BASE64` into one) |
+| `SIGNING_STORE_PASSWORD` | Opens the keystore container |
+| `SIGNING_KEY_ALIAS` | Which key inside it to sign with (default `platform`) |
+| `SIGNING_KEY_PASSWORD` | Opens that particular key — a keystore protects each key separately |
+
+**Never commit a keystore or a password.** Put them in `mise.local.toml`, which is
+gitignored, or in GitHub Actions secrets.
 
 ## Project layout
 

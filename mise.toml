@@ -28,12 +28,13 @@ _.path = [
 COMPILE_SDK = "36"
 BUILD_TOOLS = "36.0.0"
 
-# Secrets de signature : à définir hors du dépôt (T-911). Décommenter et pointer vers
-# un keystore local, JAMAIS vers un fichier du dépôt.
-# ABRP_KEYSTORE = "{{env.HOME}}/.keystores/abrp.keystore"
-# ABRP_KEYSTORE_PASSWORD = "…"
-# ABRP_KEY_ALIAS = "platform"
-# ABRP_KEY_PASSWORD = "…"
+# Secrets de SIGNATURE D'APK — sans rapport avec la clé d'API ABRP, qui se saisit dans
+# l'application. À définir hors du dépôt : décommenter dans un mise.local.toml (ignoré
+# par git) et pointer vers un keystore local, JAMAIS vers un fichier du dépôt.
+# SIGNING_KEYSTORE = "{{env.HOME}}/.keystores/signing.keystore"
+# SIGNING_STORE_PASSWORD = "…"
+# SIGNING_KEY_ALIAS = "platform"
+# SIGNING_KEY_PASSWORD = "…"
 
 # Gradle doit tourner sur le JDK que mise vient d'installer. Sans -Dorg.gradle.java.home,
 # Gradle peut réutiliser un daemon lancé par un autre JDK — typiquement celui embarqué par

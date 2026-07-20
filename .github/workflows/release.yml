@@ -16,7 +16,7 @@ jobs:
     name: Build and publish stable APK
     runs-on: ubuntu-latest
     env:
-      ABRP_KEYSTORE_BASE64: ${{ secrets.ABRP_KEYSTORE_BASE64 }}
+      SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
     steps:
       - uses: actions/checkout@v4
 
@@ -29,16 +29,16 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Decode signing keystore
-        if: ${{ env.ABRP_KEYSTORE_BASE64 != '' }}
+        if: ${{ env.SIGNING_KEYSTORE_BASE64 != '' }}
         run: |
           # Tolerate newlines in the secret; printf avoids a stray trailing newline.
-          printf '%s' "$ABRP_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > "$RUNNER_TEMP/abrp.keystore"
+          printf '%s' "$SIGNING_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > "$RUNNER_TEMP/signing.keystore"
           # A PKCS12/JKS keystore starts with 0x30 (DER SEQUENCE); anything else is corrupt.
-          if [ "$(head -c1 "$RUNNER_TEMP/abrp.keystore" | od -An -tx1 | tr -d ' ')" != "30" ]; then
-            echo "::error::ABRP_KEYSTORE_BASE64 is invalid. Recreate it with: base64 -w0 abrp.keystore"
+          if [ "$(head -c1 "$RUNNER_TEMP/signing.keystore" | od -An -tx1 | tr -d ' ')" != "30" ]; then
+            echo "::error::SIGNING_KEYSTORE_BASE64 is invalid. Recreate it with: base64 -w0 signing.keystore"
             exit 1
           fi
-          echo "ABRP_KEYSTORE=$RUNNER_TEMP/abrp.keystore" >> "$GITHUB_ENV"
+          echo "SIGNING_KEYSTORE=$RUNNER_TEMP/signing.keystore" >> "$GITHUB_ENV"
 
       - name: Run checks before publishing
         run: |
@@ -48,9 +48,9 @@ jobs:
 
       - name: Build stable release APK
         env:
-          ABRP_KEYSTORE_PASSWORD: ${{ secrets.ABRP_KEYSTORE_PASSWORD }}
-          ABRP_KEY_ALIAS: ${{ secrets.ABRP_KEY_ALIAS }}
-          ABRP_KEY_PASSWORD: ${{ secrets.ABRP_KEY_PASSWORD }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: ./gradlew assembleStableRelease --no-daemon
 
       - name: Collect APK

@@ -10,16 +10,22 @@ android {
         }
     }
 
-    // Signature avec la clé plateforme de la ROM. Secrets lus depuis l'environnement
-    // (CI) ou gradle.properties local — JAMAIS commités. Même schéma que MG4Control.
-    def keystorePath = System.getenv("ABRP_KEYSTORE") ?: project.findProperty("abrp.keystore")
+    // Signature de l'APK — rien à voir avec la clé d'API ABRP de l'utilisateur.
+    // Ces valeurs servent UNIQUEMENT au build : elles prouvent que l'APK vient bien de
+    // nous et n'entrent jamais dans l'application. La clé d'API et le token ABRP, eux,
+    // sont saisis dans l'app et stockés chiffrés sur l'appareil (voir SecurePrefs).
+    //
+    // Un keystore contient plusieurs clés : SIGNING_STORE_PASSWORD ouvre le conteneur,
+    // SIGNING_KEY_ALIAS choisit la clé, SIGNING_KEY_PASSWORD ouvre cette clé-là.
+    // Lues depuis l'environnement (CI) ou gradle.properties local — JAMAIS commitées.
+    def keystorePath = System.getenv("SIGNING_KEYSTORE") ?: project.findProperty("signing.keystore")
     signingConfigs {
         if (keystorePath != null && file(keystorePath).exists()) {
             platform {
                 storeFile     file(keystorePath)
-                storePassword System.getenv("ABRP_KEYSTORE_PASSWORD") ?: project.findProperty("abrp.keystore.password")
-                keyAlias      System.getenv("ABRP_KEY_ALIAS") ?: project.findProperty("abrp.key.alias") ?: "platform"
-                keyPassword   System.getenv("ABRP_KEY_PASSWORD") ?: project.findProperty("abrp.key.password")
+                storePassword System.getenv("SIGNING_STORE_PASSWORD") ?: project.findProperty("signing.store.password")
+                keyAlias      System.getenv("SIGNING_KEY_ALIAS") ?: project.findProperty("signing.key.alias") ?: "platform"
+                keyPassword   System.getenv("SIGNING_KEY_PASSWORD") ?: project.findProperty("signing.key.password")
             }
         }
     }
