@@ -63,10 +63,25 @@ public class CarPropertyAdapter {
 
     private final Listener listener;
     private Context        appContext;
-    private Object         car;       // android.car.Car
-    private Object         cpm;       // android.car.hardware.property.CarPropertyManager
+    // Written on the binder/main thread, read from the abrp-upload scheduler thread.
+    // Without volatile the scheduler can observe a stale null or a half-connected adapter.
+    private volatile Object car;      // android.car.Car
+    private volatile Object cpm;      // android.car.hardware.property.CarPropertyManager
     private Class<?>       carClass;
     private Class<?>       cpmClass;
+
+    // Reflected getters resolved once at connect time. getMethod() on every read meant
+    // 8 lookups every 15 s, each allocating a Method and its parameter array.
+    private volatile Method getIntMethod;
+    private volatile Method getFloatMethod;
+    private volatile Method getBooleanMethod;
+
+    /**
+     * Incremented on every disconnect. A polling runnable captures the value it started
+     * with and stops as soon as it no longer matches, so a reconnect cannot leave an
+     * orphan polling loop running alongside the new one.
+     */
+    private volatile int connectionGeneration = 0;
 
     public CarPropertyAdapter(Listener listener) {
         this.listener = listener;
@@ -89,8 +104,14 @@ public class CarPropertyAdapter {
                 try {
                     String svcName = (String) carClass.getField("PROPERTY_SERVICE").get(null);
                     Method getManager = carClass.getMethod("getCarManager", String.class);
-                    cpm = getManager.invoke(car, svcName);
-                    if (cpm != null) {
+                    Object manager = getManager.invoke(car, svcName);
+                    if (manager != null) {
+                        getIntMethod     = cpmClass.getMethod("getIntProperty", int.class, int.class);
+                        getFloatMethod   = cpmClass.getMethod("getFloatProperty", int.class, int.class);
+                        getBooleanMethod = cpmClass.getMethod("getBooleanProperty", int.class, int.class);
+                        // Publish last: isConnected() must never be true before the
+                        // cached methods are in place.
+                        cpm = manager;
                         Log.i(TAG, "CarPropertyManager ready");
                         listener.onConnected();
                     } else {
@@ -103,6 +124,7 @@ public class CarPropertyAdapter {
 
             @Override
             public void onServiceDisconnected(ComponentName name) {
+                connectionGeneration++;
                 cpm = null;
                 car = null;
                 Log.w(TAG, "Car service disconnected");
@@ -121,6 +143,9 @@ public class CarPropertyAdapter {
     }
 
     public void disconnect() {
+        // Bump first: any in-flight polling runnable must stop even if the calls below throw.
+        connectionGeneration++;
+        cpm = null;
         if (car == null) return;
         try {
             carClass.getMethod("disconnect").invoke(car);
@@ -128,7 +153,6 @@ public class CarPropertyAdapter {
             Log.e(TAG, "disconnect error", e);
         }
         car = null;
-        cpm = null;
     }
 
     public boolean isConnected() {
@@ -244,11 +268,14 @@ public class CarPropertyAdapter {
     public void startFloatPolling(int propId, int areaId, long intervalMs,
                                   android.os.Handler handler, PropertyCallback cb) {
         if (cpm == null) { Log.w(TAG, "startFloatPolling: not connected"); return; }
+        final int generation = connectionGeneration;
         Runnable[] r = {null};
         r[0] = () -> {
-            if (cpm == null) return; // stopped by disconnect
-            float val = getFloatProperty(propId, areaId);
-            cb.onValue(propId, areaId, val);
+            // Checking cpm alone was not enough: a reconnect makes it non-null again and
+            // the orphan loop resumed forever next to the new one.
+            if (cpm == null || connectionGeneration != generation) return;
+            Float val = getFloatProperty(propId, areaId);
+            if (val != null) cb.onValue(propId, areaId, val);
             handler.postDelayed(r[0], intervalMs);
         };
         handler.post(r[0]);
@@ -273,10 +300,12 @@ public class CarPropertyAdapter {
         if (cpm == null) { Log.w(TAG, "registerPropertyCallback: not connected"); return; }
         try {
             // Find a 3-arg register* method on CarPropertyManager: (Listener, propId, rateHz).
+            // Match by exact name: getMethods() has no defined order, so "the first
+            // 3-arg register* method" could pick a different overload between runs.
             java.lang.reflect.Method registerMethod = null;
             for (java.lang.reflect.Method m : cpmClass.getMethods()) {
                 String n = m.getName();
-                if ((n.startsWith("register") || n.startsWith("Register"))
+                if (("registerListener".equals(n) || "registerCallback".equals(n))
                         && m.getParameterCount() == 3) {
                     Log.d(TAG, "register candidate: " + m.toGenericString());
                     registerMethod = m;
@@ -352,10 +381,11 @@ public class CarPropertyAdapter {
 
     /** Area 0 covers global/non-zoned properties. Null when unreadable. */
     public Integer getIntProperty(int propId, int areaId) {
-        if (cpm == null) return null;
+        Object manager = cpm;
+        Method method = getIntMethod;
+        if (manager == null || method == null) return null;
         try {
-            return (Integer) cpmClass.getMethod("getIntProperty", int.class, int.class)
-                    .invoke(cpm, propId, areaId);
+            return (Integer) method.invoke(manager, propId, areaId);
         } catch (Exception e) {
             Log.e(TAG, "getIntProperty(" + Integer.toHexString(propId) + ") failed", e);
             return null;
@@ -364,10 +394,11 @@ public class CarPropertyAdapter {
 
     /** Null when unreadable. */
     public Float getFloatProperty(int propId, int areaId) {
-        if (cpm == null) return null;
+        Object manager = cpm;
+        Method method = getFloatMethod;
+        if (manager == null || method == null) return null;
         try {
-            return (Float) cpmClass.getMethod("getFloatProperty", int.class, int.class)
-                    .invoke(cpm, propId, areaId);
+            return (Float) method.invoke(manager, propId, areaId);
         } catch (Exception e) {
             Log.e(TAG, "getFloatProperty(" + Integer.toHexString(propId) + ") failed", e);
             return null;
@@ -376,10 +407,11 @@ public class CarPropertyAdapter {
 
     /** Null when unreadable. */
     public Boolean getBooleanProperty(int propId, int areaId) {
-        if (cpm == null) return null;
+        Object manager = cpm;
+        Method method = getBooleanMethod;
+        if (manager == null || method == null) return null;
         try {
-            return (Boolean) cpmClass.getMethod("getBooleanProperty", int.class, int.class)
-                    .invoke(cpm, propId, areaId);
+            return (Boolean) method.invoke(manager, propId, areaId);
         } catch (Exception e) {
             Log.e(TAG, "getBooleanProperty(" + Integer.toHexString(propId) + ") failed", e);
             return null;

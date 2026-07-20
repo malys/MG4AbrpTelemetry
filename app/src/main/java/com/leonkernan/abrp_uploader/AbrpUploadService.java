@@ -52,7 +52,8 @@ public class AbrpUploadService extends Service {
     // is effectively immutable for our purposes.
     private volatile Location lastLocation;
 
-    private CarPropertyAdapter   carAdapter;
+    // Replaced on the main thread by connectCarAdapter, read from the scheduler thread.
+    private volatile CarPropertyAdapter carAdapter;
     private LocationManager      locationManager;
     private ScheduledExecutorService scheduler;
     private SharedPreferences    prefs;
