@@ -65,7 +65,10 @@ dependencies {
     implementation libs.activity
     implementation libs.constraintlayout
     implementation libs.security.crypto
+    // android.jar's org.json is a stub in unit tests; the real implementation lets the
+    // telemetry payload tests parse what the app actually builds.
     testImplementation libs.junit
+    testImplementation libs.json
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core
 }

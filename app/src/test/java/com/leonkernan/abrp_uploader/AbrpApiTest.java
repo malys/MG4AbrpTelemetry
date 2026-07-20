@@ -22,6 +22,15 @@ public class AbrpApiTest {
     @Test
     public void endpointIsHttps() {
         assertTrue(AbrpApi.API_URL.startsWith("https://"));
+        assertTrue(AbrpApi.VERIFY_URL.startsWith("https://"));
+    }
+
+    /** [T-913] The Test button must not be able to write telemetry. */
+    @Test
+    public void credentialCheckDoesNotTargetTheTelemetryWriteEndpoint() {
+        assertFalse("le test de connexion ne doit jamais viser /tlm/send",
+                AbrpApi.VERIFY_URL.contains("/tlm/send"));
+        assertTrue(AbrpApi.VERIFY_URL.contains("get_next_charge"));
     }
 
     @Test

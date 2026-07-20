@@ -345,37 +345,44 @@ public class CarPropertyAdapter {
         }
     }
 
-    /** Area 0 covers global/non-zoned properties. */
-    public int getIntProperty(int propId, int areaId) {
-        if (cpm == null) return 0;
+    // Getters return null when the property cannot be read. They used to return 0,
+    // which is indistinguishable from a genuine zero: one SecurityException on the SOC
+    // property was enough to tell ABRP the battery was empty, every 15 seconds.
+    // Callers must omit a null field from the payload rather than substituting a value.
+
+    /** Area 0 covers global/non-zoned properties. Null when unreadable. */
+    public Integer getIntProperty(int propId, int areaId) {
+        if (cpm == null) return null;
         try {
             return (Integer) cpmClass.getMethod("getIntProperty", int.class, int.class)
                     .invoke(cpm, propId, areaId);
         } catch (Exception e) {
             Log.e(TAG, "getIntProperty(" + Integer.toHexString(propId) + ") failed", e);
-            return 0;
+            return null;
         }
     }
 
-    public float getFloatProperty(int propId, int areaId) {
-        if (cpm == null) return 0f;
+    /** Null when unreadable. */
+    public Float getFloatProperty(int propId, int areaId) {
+        if (cpm == null) return null;
         try {
-            return (float) cpmClass.getMethod("getFloatProperty", int.class, int.class)
+            return (Float) cpmClass.getMethod("getFloatProperty", int.class, int.class)
                     .invoke(cpm, propId, areaId);
         } catch (Exception e) {
             Log.e(TAG, "getFloatProperty(" + Integer.toHexString(propId) + ") failed", e);
-            return 0f;
+            return null;
         }
     }
 
-    public boolean getBooleanProperty(int propId, int areaId) {
-        if (cpm == null) return false;
+    /** Null when unreadable. */
+    public Boolean getBooleanProperty(int propId, int areaId) {
+        if (cpm == null) return null;
         try {
-            return (boolean) cpmClass.getMethod("getBooleanProperty", int.class, int.class)
+            return (Boolean) cpmClass.getMethod("getBooleanProperty", int.class, int.class)
                     .invoke(cpm, propId, areaId);
         } catch (Exception e) {
             Log.e(TAG, "getBooleanProperty(" + Integer.toHexString(propId) + ") failed", e);
-            return false;
+            return null;
         }
     }
 }

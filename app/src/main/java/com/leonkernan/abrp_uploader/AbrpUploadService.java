@@ -182,53 +182,59 @@ public class AbrpUploadService extends Service {
             return;
         }
 
-        // Read whatever the car will give us. Each getter has internal try/catch
-        // and returns 0 if the call fails — we keep going regardless.
+        // Read whatever the car will give us. Every getter returns null when the read
+        // fails, and a null field is omitted from the payload — never sent as 0.
         boolean carUp = carAdapter != null && carAdapter.isConnected();
 
-        float speedKmh = carUp ? carAdapter.getFloatProperty(
+        Float speedKmh = carUp ? carAdapter.getFloatProperty(
                 CarPropertyAdapter.PROP_VEHICLE_SPEED,
-                CarPropertyAdapter.PROP_AREA_GLOBAL) : 0f;
+                CarPropertyAdapter.PROP_AREA_GLOBAL) : null;
 
-        int soc = carUp ? Math.round(carAdapter.getFloatProperty(
+        Float socRaw = carUp ? carAdapter.getFloatProperty(
                 CarPropertyAdapter.PROP_EV_BATTERY_PCT,
-                CarPropertyAdapter.PROP_AREA_GLOBAL)) : 0;
+                CarPropertyAdapter.PROP_AREA_GLOBAL) : null;
+        Integer soc = socRaw == null ? null : Math.round(socRaw);
 
-        int rangeKm = carUp ? carAdapter.getIntProperty(
+        Integer rangeKm = carUp ? carAdapter.getIntProperty(
                 CarPropertyAdapter.PROP_EV_RANGE_KM,
-                CarPropertyAdapter.PROP_AREA_GLOBAL) : 0;
+                CarPropertyAdapter.PROP_AREA_GLOBAL) : null;
 
-        float extTemp = carUp ? carAdapter.getFloatProperty(
+        Float extTemp = carUp ? carAdapter.getFloatProperty(
                 CarPropertyAdapter.PROP_OUTSIDE_TEMP,
-                CarPropertyAdapter.PROP_AREA_HVAC) : 0f;
+                CarPropertyAdapter.PROP_AREA_HVAC) : null;
 
         // Charge rate comes in mW (signed: +ve charging, -ve driving). ABRP wants kW.
-        float powerKw = carUp ? (carAdapter.getFloatProperty(
+        Float chargeRate = carUp ? carAdapter.getFloatProperty(
                 CarPropertyAdapter.PROP_EV_INSTANTANEOUS_CHARGE_RATE,
-                CarPropertyAdapter.PROP_AREA_GLOBAL) / 1_000_000f) : 0f;
-        boolean charging = carUp && carAdapter.getBooleanProperty(
+                CarPropertyAdapter.PROP_AREA_GLOBAL) : null;
+        Float powerKw = chargeRate == null ? null : chargeRate / 1_000_000f;
+
+        Boolean charging = carUp ? carAdapter.getBooleanProperty(
                 CarPropertyAdapter.PROP_EV_CHARGE_PORT_CONNECTED,
-                CarPropertyAdapter.PROP_AREA_GLOBAL);
+                CarPropertyAdapter.PROP_AREA_GLOBAL) : null;
 
         // Free derived signals
-        int gear = carUp ? carAdapter.getIntProperty(
+        Integer gear = carUp ? carAdapter.getIntProperty(
                 CarPropertyAdapter.PROP_GEAR_SELECTION,
-                CarPropertyAdapter.PROP_AREA_GLOBAL) : 0;
-        boolean parked = gear == CarPropertyAdapter.GEAR_PARK;
+                CarPropertyAdapter.PROP_AREA_GLOBAL) : null;
+        // Unknown gear means unknown parked state — not "not parked".
+        Boolean parked = gear == null ? null : (gear == CarPropertyAdapter.GEAR_PARK);
+
         // DCFC heuristic: charging at AC speeds (3-22 kW) is type-2; above ~25 kW
-        // it can only be DC fast.
-        boolean dcfc = charging && powerKw > 25f;
+        // it can only be DC fast. Undecidable if either input is missing.
+        Boolean dcfc = (charging == null || powerKw == null)
+                ? null : (charging && powerKw > 25f);
 
         // Cabin temperature — try the standard HVAC property, may fail on this VHAL.
-        float cabinTemp = carUp ? carAdapter.getFloatProperty(
+        Float cabinTemp = carUp ? carAdapter.getFloatProperty(
                 CarPropertyAdapter.PROP_CABIN_TEMP,
-                CarPropertyAdapter.PROP_AREA_HVAC) : 0f;
+                CarPropertyAdapter.PROP_AREA_HVAC) : null;
 
         long utc = System.currentTimeMillis() / 1000;
         Location loc = lastLocation;
 
         String tlm = TelemetryPayload.build(
-                utc, carUp, soc, speedKmh, rangeKm, extTemp, powerKw,
+                utc, soc, speedKmh, rangeKm, extTemp, powerKw,
                 charging, dcfc, parked, cabinTemp,
                 loc != null ? loc.getLatitude()  : null,
                 loc != null ? loc.getLongitude() : null,
@@ -239,7 +245,7 @@ public class AbrpUploadService extends Service {
     }
 
     private void sendToAbrp(String apiKey, String token, String tlmJson,
-                            int soc, float speedKmh, boolean carUp) {
+                            Integer soc, Float speedKmh, boolean carUp) {
         try {
             AbrpApi.Response response = AbrpApi.send(apiKey, token, tlmJson);
             int code = response.code;
@@ -255,9 +261,10 @@ public class AbrpUploadService extends Service {
                         .putString("last_upload_time",   time)
                         .putString("last_upload_status", "OK")
                         .apply();
-                String detail = carUp
+                // Only claim a value in the notification if we actually read one.
+                String detail = (soc != null && speedKmh != null)
                         ? ("SOC " + soc + "% · " + Math.round(speedKmh) + " km/h · " + time)
-                        : ("GPS only · " + time);
+                        : (carUp ? ("Car data partial · " + time) : ("GPS only · " + time));
                 updateNotification(detail);
             } else {
                 prefs.edit().putString("last_upload_status", "HTTP " + code).apply();

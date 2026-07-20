@@ -179,9 +179,10 @@ public class MainActivity extends AppCompatActivity {
      */
     private String pingAbrp(String apiKey, String token) {
         try {
-            // Minimal valid telemetry payload
-            String tlm = "{\"utc\":" + (System.currentTimeMillis() / 1000) + ",\"soc\":0}";
-            AbrpApi.Response response = AbrpApi.send(apiKey, token, tlm);
+            // Read-only check. The previous version POSTed {"utc":...,"soc":0} to the LIVE
+            // /tlm/send endpoint, i.e. told ABRP the car was at 0% every time the user
+            // pressed Test, wrecking the route plan it had computed.
+            AbrpApi.Response response = AbrpApi.verifyCredentials(apiKey, token);
 
             if (response.code == 200) return null;
             if (response.code == 401) return getString(R.string.conn_err_auth);
