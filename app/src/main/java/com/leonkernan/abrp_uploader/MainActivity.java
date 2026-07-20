@@ -10,6 +10,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -207,7 +208,9 @@ public class MainActivity extends AppCompatActivity {
     // ---------- Service status ----------
 
     private void refreshStatus() {
-        boolean running = prefs.getBoolean("service_running", false);
+        // Live signal, not the preference: "service_running" stays stale-true after a
+        // force-kill because onDestroy never ran.
+        boolean running = AbrpUploadService.isRunning();
         boolean enabled = prefs.getBoolean("service_enabled", false);
 
         if (enabled && running) {
@@ -259,5 +262,37 @@ public class MainActivity extends AppCompatActivity {
                     missing.toArray(new String[0]),
                     LOCATION_PERMISSION_REQUEST);
         }
+    }
+
+    /**
+     * A denied permission used to be silent: the service kept running and simply uploaded
+     * nothing useful, with the UI claiming everything was fine. Say what was denied and
+     * what it costs.
+     */
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != LOCATION_PERMISSION_REQUEST) return;
+
+        boolean locationDenied = false;
+        boolean carDataDenied  = false;
+        for (int i = 0; i < permissions.length && i < grantResults.length; i++) {
+            if (grantResults[i] == PackageManager.PERMISSION_GRANTED) continue;
+            if (Manifest.permission.ACCESS_FINE_LOCATION.equals(permissions[i])) {
+                locationDenied = true;
+            } else {
+                carDataDenied = true;
+            }
+        }
+
+        if (locationDenied && carDataDenied) {
+            setConnectionStatus(COLOR_ERROR, getString(R.string.perm_denied_all));
+        } else if (locationDenied) {
+            setConnectionStatus(COLOR_ERROR, getString(R.string.perm_denied_location));
+        } else if (carDataDenied) {
+            setConnectionStatus(COLOR_ERROR, getString(R.string.perm_denied_car));
+        }
+        refreshStatus();
     }
 }

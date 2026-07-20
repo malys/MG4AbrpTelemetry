@@ -41,6 +41,16 @@ public class AbrpUploadService extends Service {
 
     public static final String ACTION_STOP = "com.leonkernan.abrp_uploader.STOP";
 
+    /**
+     * Live in-process signal. The "service_running" preference cannot be trusted on its
+     * own: a force-kill (adb install -r, low-memory kill) skips onDestroy and leaves it
+     * stale-true forever. This field dies with the process, so it is only ever true while
+     * the service really is up.
+     */
+    private static volatile boolean running = false;
+
+    public static boolean isRunning() { return running; }
+
     private static final String TAG             = "AbrpUploadService";
     private static final String CHANNEL_ID      = "abrp_uploader";
     private static final int    NOTIF_ID        = 1;
@@ -84,6 +94,7 @@ public class AbrpUploadService extends Service {
 
         createNotificationChannel();
         startForeground(NOTIF_ID, buildNotification("Starting…"));
+        running = true;
         prefs.edit().putBoolean("service_running", true).apply();
 
         connectCarAdapter();
@@ -121,6 +132,7 @@ public class AbrpUploadService extends Service {
             try { locationManager.removeUpdates(locationListener); } catch (Exception ignored) {}
         }
         if (mainHandler != null) mainHandler.removeCallbacksAndMessages(null);
+        running = false;
         prefs.edit().putBoolean("service_running", false).apply();
         super.onDestroy();
     }

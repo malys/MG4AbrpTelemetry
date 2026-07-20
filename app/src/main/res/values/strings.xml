@@ -15,6 +15,9 @@
     <string name="conn_testing">Testing…</string>
     <string name="conn_ok">Connected — API responding OK</string>
     <string name="conn_err_auth">Auth failed — check your API key and token</string>
+    <string name="perm_denied_location">Location denied — telemetry will have no position. Grant it in Settings to send GPS to ABRP.</string>
+    <string name="perm_denied_car">Vehicle data denied — no battery %, speed or range will be sent. Grant it in Settings.</string>
+    <string name="perm_denied_all">Location and vehicle data denied — only a timestamp will be sent. Grant both in Settings.</string>
     <string name="conn_err_no_internet">No internet connection</string>
     <string name="conn_err_timeout">Connection timed out</string>
     <string name="conn_err_http">Server error (HTTP %1$d)</string>

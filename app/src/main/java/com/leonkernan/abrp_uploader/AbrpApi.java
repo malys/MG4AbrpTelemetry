@@ -100,9 +100,18 @@ final class AbrpApi {
     }
 
     private static String readBody(HttpURLConnection conn, int code) {
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(
-                code == 200 ? conn.getInputStream() : conn.getErrorStream(),
-                StandardCharsets.UTF_8))) {
+        // getErrorStream() returns null on some non-200 responses; passing null to
+        // InputStreamReader throws. Checked rather than left to the catch-all below.
+        java.io.InputStream stream;
+        try {
+            stream = code == 200 ? conn.getInputStream() : conn.getErrorStream();
+        } catch (Exception e) {
+            return "";
+        }
+        if (stream == null) return "";
+
+        try (BufferedReader br = new BufferedReader(
+                new InputStreamReader(stream, StandardCharsets.UTF_8))) {
             StringBuilder sb = new StringBuilder();
             String line;
             while ((line = br.readLine()) != null) sb.append(line);
