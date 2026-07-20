@@ -46,6 +46,7 @@ public class AbrpUploadService extends Service {
     private static final int    NOTIF_ID        = 1;
     private static final long   UPLOAD_INTERVAL_SEC = 15;
     private static final long   CAR_RECONNECT_INTERVAL_SEC = 30;
+    private static final long   LOCATION_RETRY_INTERVAL_SEC = 30;
 
     // Set from the main thread (LocationListener uses Main looper), read from
     // the scheduler thread inside doUpload. volatile is sufficient since Location
@@ -63,6 +64,9 @@ public class AbrpUploadService extends Service {
 
     private volatile long lastSuccessfulUploadMs = 0L;
     private volatile long lastCarConnectAttemptMs = 0L;
+    /** False while no GPS subscription is delivering — drives the watchdog re-arm. */
+    private volatile boolean locationUpdatesActive = false;
+    private volatile long lastLocationRequestMs = 0L;
 
     // ---------- Lifecycle ----------
 
@@ -160,6 +164,16 @@ public class AbrpUploadService extends Service {
                        > CAR_RECONNECT_INTERVAL_SEC * 1000) {
                 Log.w(TAG, "Car adapter not connected, attempting reconnect");
                 connectCarAdapter();
+            }
+
+            // Same watchdog for GPS: requestLocationUpdates used to run once in onCreate,
+            // so a provider that was off at start-up — or dropped later — meant
+            // position-less telemetry for the rest of the session.
+            if (!locationUpdatesActive
+                    && System.currentTimeMillis() - lastLocationRequestMs
+                       > LOCATION_RETRY_INTERVAL_SEC * 1000) {
+                Log.w(TAG, "Location updates inactive, re-arming");
+                mainHandler.post(this::requestLocationUpdates);
             }
             doUpload();
         } catch (Throwable t) {
@@ -284,26 +298,52 @@ public class AbrpUploadService extends Service {
     // ---------- Location ----------
 
     private final LocationListener locationListener = new LocationListener() {
-        @Override public void onLocationChanged(Location location) { lastLocation = location; }
+        @Override public void onLocationChanged(Location location) {
+            lastLocation = location;
+            locationUpdatesActive = true;
+        }
         @Override public void onStatusChanged(String p, int s, Bundle e) {}
-        @Override public void onProviderEnabled(String p) {}
-        @Override public void onProviderDisabled(String p) {}
+        @Override public void onProviderEnabled(String p) {
+            Log.i(TAG, "GPS provider enabled — re-arming location updates");
+            // The subscription made while the provider was off delivers nothing; ask again.
+            requestLocationUpdates();
+        }
+        @Override public void onProviderDisabled(String p) {
+            Log.w(TAG, "GPS provider disabled — telemetry will omit position");
+            locationUpdatesActive = false;
+            // A stale fix is worse than none: ABRP would think the car is parked there.
+            lastLocation = null;
+        }
     };
 
+    /**
+     * Subscribes to GPS updates. Safe to call repeatedly: the previous subscription is
+     * removed first, so the watchdog can re-arm without stacking listeners.
+     */
     private void requestLocationUpdates() {
         try {
             locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+            try { locationManager.removeUpdates(locationListener); } catch (Exception ignored) {}
+            locationUpdatesActive = false;
+
             if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
                 locationManager.requestLocationUpdates(
                         LocationManager.GPS_PROVIDER, 10_000, 0f,
                         locationListener, Looper.getMainLooper());
+                locationUpdatesActive = true;
+                lastLocationRequestMs = System.currentTimeMillis();
                 Location last = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
                 if (last != null) lastLocation = last;
+            } else {
+                Log.w(TAG, "GPS provider disabled — will retry");
+                lastLocationRequestMs = System.currentTimeMillis();
             }
         } catch (SecurityException e) {
             Log.w(TAG, "Location permission not granted: " + e.getMessage());
+            lastLocationRequestMs = System.currentTimeMillis();
         } catch (Exception e) {
             Log.w(TAG, "Location unavailable: " + e.getMessage());
+            lastLocationRequestMs = System.currentTimeMillis();
         }
     }
 
