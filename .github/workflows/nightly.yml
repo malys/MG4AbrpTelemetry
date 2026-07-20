@@ -66,7 +66,7 @@ jobs:
           ABRP_KEYSTORE_PASSWORD: ${{ secrets.ABRP_KEYSTORE_PASSWORD }}
           ABRP_KEY_ALIAS: ${{ secrets.ABRP_KEY_ALIAS }}
           ABRP_KEY_PASSWORD: ${{ secrets.ABRP_KEY_PASSWORD }}
-        run: ./gradlew assembleNightlyRelease --no-daemon
+        run: ./gradlew assembleNightlyRelease -PnightlyBuild=${{ github.run_number }} --no-daemon
 
       - name: Collect APK
         if: steps.guard.outputs.skip != 'true'
@@ -81,8 +81,8 @@ jobs:
         with:
           # The in-app updater compares this tag against the installed version, so it
           # must stay parseable as a version.
-          tag_name: nightly-${{ github.run_number }}
-          name: Nightly ${{ github.run_number }}
+          tag_name: v${{ steps.version.outputs.value }}
+          name: Nightly ${{ steps.version.outputs.value }}
           prerelease: true
           files: dist/*.apk
           body: |

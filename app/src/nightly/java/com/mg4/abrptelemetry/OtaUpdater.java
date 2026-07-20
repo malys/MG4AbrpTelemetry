@@ -151,13 +151,22 @@ final class OtaUpdater {
             }
 
             JSONArray releases = new JSONArray(body.toString());
+
+            // Scan every entry and keep the HIGHEST version, not simply the first one
+            // that beats the installed build: the API's ordering is by creation date, and
+            // a re-published or back-dated release would otherwise win over a newer one.
+            //
+            // Stable releases are skipped on purpose. This channel tracks pre-releases
+            // only — and a stable APK could not update a nightly install anyway, since
+            // the nightly applicationId carries a .nightly suffix.
+            Update best = null;
             for (int i = 0; i < releases.length(); i++) {
                 JSONObject release = releases.getJSONObject(i);
-                // Nightly tracks pre-releases; a stable tag is not this channel's business.
                 if (!release.optBoolean("prerelease", false)) continue;
 
                 String tag = release.optString("tag_name", "");
                 if (!isNewer(tag, currentVersion)) continue;
+                if (best != null && !isNewer(tag, best.versionName)) continue;
 
                 JSONArray assets = release.optJSONArray("assets");
                 if (assets == null) continue;
@@ -172,10 +181,11 @@ final class OtaUpdater {
                         Log.w(TAG, "Rejected update URL from an unexpected host: " + url);
                         continue;
                     }
-                    return new Update(tag, url);
+                    best = new Update(tag, url);
+                    break;
                 }
             }
-            return null;
+            return best;
         } catch (Exception e) {
             Log.w(TAG, "Update check failed: " + e.getMessage());
             return null;

@@ -52,6 +52,11 @@ android {
         nightly {
             dimension "channel"
             applicationIdSuffix ".nightly"
+            // Le numéro de build fait partie du COEUR numérique de la version
+            // ("1.0.42-nightly"), pas du suffixe : l'updater compare des segments
+            // numériques, donc deux nightlies doivent différer avant le premier tiret.
+            // -PnightlyBuild=<n> est passé par la CI ; 0 en local.
+            versionName "${defaultConfig.versionName}.${project.findProperty('nightlyBuild') ?: '0'}"
             versionNameSuffix "-nightly"
             buildConfigField "boolean", "OTA_ENABLED", "true"
         }
@@ -84,6 +89,14 @@ android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
+    }
+}
+
+// Version publiée par la CI pour composer le tag de la pré-release : le tag DOIT être
+// comparable par l'updater, donc "v1.0.42" et non "nightly-42".
+tasks.register('printNightlyVersion') {
+    doLast {
+        println "${android.defaultConfig.versionName}.${project.findProperty('nightlyBuild') ?: '0'}"
     }
 }
 

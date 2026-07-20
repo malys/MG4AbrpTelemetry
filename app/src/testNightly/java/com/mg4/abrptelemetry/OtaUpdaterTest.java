@@ -71,10 +71,20 @@ public class OtaUpdaterTest {
 
     @Test
     public void theNightlySuffixIsIgnored() {
-        // The installed nightly reports "1.2.0-nightly"; that must not read as older
-        // than the "1.2.0" tag it was built from, or it would update to itself forever.
-        assertFalse(OtaUpdater.isNewer("v1.2.0", "1.2.0-nightly"));
-        assertTrue(OtaUpdater.isNewer("v1.2.1", "1.2.0-nightly"));
+        // The installed nightly reports "1.0.42-nightly"; that must not read as older
+        // than the "v1.0.42" tag it was built from, or it would update to itself forever.
+        assertFalse(OtaUpdater.isNewer("v1.0.42", "1.0.42-nightly"));
+        assertTrue(OtaUpdater.isNewer("v1.0.43", "1.0.42-nightly"));
+    }
+
+    @Test
+    public void nightlyBuildNumbersCompareAsVersions() {
+        // The CI tags nightlies "v<base>.<run>" precisely so this works. A tag like
+        // "nightly-43" parses to 0 and would never look newer than an installed build,
+        // so the channel would silently never update.
+        assertTrue(OtaUpdater.isNewer("v1.0.100", "1.0.99-nightly"));
+        assertFalse(OtaUpdater.isNewer("v1.0.41", "1.0.42-nightly"));
+        assertArrayEquals(new int[]{0}, OtaUpdater.segments("nightly-43"));
     }
 
     @Test
