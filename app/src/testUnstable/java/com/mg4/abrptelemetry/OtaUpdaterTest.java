@@ -7,7 +7,7 @@ import static org.junit.Assert.assertTrue;
 import org.junit.Test;
 
 /**
- * OTA update policy — nightly channel only. The updater installs code on a vehicle, so the
+ * OTA update policy — unstable channel only. The updater installs code on a vehicle, so the
  * origin checks are the part that must not regress.
  */
 public class OtaUpdaterTest {
@@ -70,27 +70,27 @@ public class OtaUpdaterTest {
     }
 
     @Test
-    public void theNightlySuffixIsIgnored() {
-        // The installed nightly reports "1.0.42-nightly"; that must not read as older
+    public void theUnstableSuffixIsIgnored() {
+        // The installed unstable reports "1.0.42-unstable"; that must not read as older
         // than the "v1.0.42" tag it was built from, or it would update to itself forever.
-        assertFalse(OtaUpdater.isNewer("v1.0.42", "1.0.42-nightly"));
-        assertTrue(OtaUpdater.isNewer("v1.0.43", "1.0.42-nightly"));
+        assertFalse(OtaUpdater.isNewer("v1.0.42", "1.0.42-unstable"));
+        assertTrue(OtaUpdater.isNewer("v1.0.43", "1.0.42-unstable"));
     }
 
     @Test
-    public void nightlyBuildNumbersCompareAsVersions() {
-        // The CI tags nightlies "v<base>.<run>" precisely so this works. A tag like
-        // "nightly-43" parses to 0 and would never look newer than an installed build,
+    public void unstableBuildNumbersCompareAsVersions() {
+        // The CI tags unstable builds "v<base>.<run>" precisely so this works. A tag like
+        // "unstable-43" parses to 0 and would never look newer than an installed build,
         // so the channel would silently never update.
-        assertTrue(OtaUpdater.isNewer("v1.0.100", "1.0.99-nightly"));
-        assertFalse(OtaUpdater.isNewer("v1.0.41", "1.0.42-nightly"));
-        assertArrayEquals(new int[]{0}, OtaUpdater.segments("nightly-43"));
+        assertTrue(OtaUpdater.isNewer("v1.0.100", "1.0.99-unstable"));
+        assertFalse(OtaUpdater.isNewer("v1.0.41", "1.0.42-unstable"));
+        assertArrayEquals(new int[]{0}, OtaUpdater.segments("unstable-43"));
     }
 
     @Test
     public void versionCoreParsingKeepsSegmentPositions() {
         assertArrayEquals(new int[]{1, 2, 3}, OtaUpdater.segments("v1.2.3"));
-        assertArrayEquals(new int[]{1, 2, 3}, OtaUpdater.segments("1.2.3-nightly"));
+        assertArrayEquals(new int[]{1, 2, 3}, OtaUpdater.segments("1.2.3-unstable"));
         assertArrayEquals(new int[]{1, 2, 3}, OtaUpdater.segments("1.2.3+build7"));
         // A non-numeric segment is 0, not dropped.
         assertArrayEquals(new int[]{1, 0, 5}, OtaUpdater.segments("1.x.5"));

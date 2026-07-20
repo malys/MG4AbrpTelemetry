@@ -18,12 +18,13 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 /**
- * Over-the-air updater — NIGHTLY BUILDS ONLY.
+ * Over-the-air updater — UNSTABLE BUILDS ONLY.
  *
  * The stable channel deliberately has no self-update path: this class does not exist in a
- * stable build. Nightly testers get updates without manual work, and accept that channel's
+ * stable build. Unstable testers get updates without manual work, and accept that channel's
  * risk.
  *
  * Security posture is the one MG4Control settled on in its own OTA work:
@@ -37,7 +38,7 @@ final class OtaUpdater {
 
     private static final String TAG = "OtaUpdater";
 
-    /** Pre-releases live here; the nightly channel tracks them. */
+    /** Pre-releases live here; the unstable channel tracks them. */
     private static final String RELEASES_API =
             "https://api.github.com/repos/malys/MG4AbrpTelemetry/releases";
 
@@ -86,7 +87,7 @@ final class OtaUpdater {
     }
 
     /**
-     * Numeric core of a version: "v1.2.3-nightly" -> [1, 2, 3].
+     * Numeric core of a version: "v1.2.3-unstable" -> [1, 2, 3].
      *
      * A segment with no digits becomes 0 rather than being dropped, so later segments do
      * not shift left and turn a patch into a minor.
@@ -157,8 +158,8 @@ final class OtaUpdater {
             // a re-published or back-dated release would otherwise win over a newer one.
             //
             // Stable releases are skipped on purpose. This channel tracks pre-releases
-            // only — and a stable APK could not update a nightly install anyway, since
-            // the nightly applicationId carries a .nightly suffix.
+            // only — and a stable APK could not update a unstable install anyway, since
+            // the unstable applicationId carries a .unstable suffix.
             Update best = null;
             for (int i = 0; i < releases.length(); i++) {
                 JSONObject release = releases.getJSONObject(i);
@@ -174,7 +175,7 @@ final class OtaUpdater {
                     JSONObject asset = assets.getJSONObject(a);
                     String name = asset.optString("name", "");
                     if (!name.toLowerCase(java.util.Locale.US).endsWith(".apk")) continue;
-                    if (!name.contains("nightly")) continue;
+                    if (!name.contains("unstable")) continue;
 
                     String url = asset.optString("browser_download_url", "");
                     if (!isAllowedUrl(url)) {
@@ -195,6 +196,18 @@ final class OtaUpdater {
     }
 
     /**
+     * Name the downloaded APK gets in public Downloads. The version comes from a remote
+     * tag, so it is reduced to a safe character set before it reaches a path. Callers that
+     * look for an already-downloaded update must use this same name.
+     */
+    static String downloadFileName(String versionName) {
+        String safe = (versionName == null || versionName.isEmpty())
+                ? "unknown"
+                : versionName.toLowerCase(Locale.US).replaceAll("[^a-z0-9._-]", "_");
+        return "MG4AbrpTelemetry-unstable-" + safe + ".apk";
+    }
+
+    /**
      * Queues the download. The URL is re-checked here: a remote URL is never handed to a
      * system component on the strength of an earlier check alone.
      */
@@ -203,7 +216,7 @@ final class OtaUpdater {
             Log.w(TAG, "Refusing to download from " + update.apkUrl);
             return;
         }
-        String fileName = "MG4AbrpTelemetry-nightly-" + update.versionName + ".apk";
+        String fileName = downloadFileName(update.versionName);
         DownloadManager.Request request = new DownloadManager.Request(Uri.parse(update.apkUrl))
                 .setTitle("MG4 ABRP Telemetry " + update.versionName)
                 .setNotificationVisibility(

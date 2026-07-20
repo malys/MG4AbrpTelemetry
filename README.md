@@ -1,5 +1,11 @@
 # MG4 ABRP Telemetry
 
+[![Tests](https://github.com/malys/MG4AbrpTelemetry/actions/workflows/tests.yml/badge.svg)](https://github.com/malys/MG4AbrpTelemetry/actions/workflows/tests.yml)
+[![Security](https://github.com/malys/MG4AbrpTelemetry/actions/workflows/security.yml/badge.svg)](https://github.com/malys/MG4AbrpTelemetry/actions/workflows/security.yml)
+[![Unstable](https://github.com/malys/MG4AbrpTelemetry/actions/workflows/unstable.yml/badge.svg)](https://github.com/malys/MG4AbrpTelemetry/actions/workflows/unstable.yml)
+[![Release](https://img.shields.io/github/v/release/malys/MG4AbrpTelemetry?include_prereleases&sort=semver)](https://github.com/malys/MG4AbrpTelemetry/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Sends live telemetry from an **MG4 (SAIC eh32)** to
 [A Better Route Planner](https://abetterrouteplanner.com) — battery level, speed, range,
 temperature, charging state and position — straight from the car's own APIs.
@@ -40,9 +46,9 @@ Two channels. Pick one — they install side by side.
 | Channel | Auto-update | Use it if |
 |---|---|---|
 | **Stable** | No. Contains no updater at all. | You want the car to run what you put on it |
-| **Nightly** | Yes, from GitHub pre-releases | You are testing and want fixes as they land |
+| **Unstable** | Yes, from GitHub pre-releases | You are testing and want fixes as they land |
 
-Grab the APK from [Releases](../../releases). Stable builds are the tagged ones; nightlies
+Grab the APK from [Releases](../../releases). Stable builds are the tagged ones; unstable builds
 are marked pre-release.
 
 ### Getting the APK onto the car
@@ -120,7 +126,7 @@ gitignored, or in GitHub Actions secrets.
 ```
 app/src/main      shared code: service, car adapter, telemetry, UI
 app/src/stable    no-op update hook — the stable channel cannot self-update
-app/src/nightly   OTA updater (origin allowlist + signature check)
+app/src/unstable  OTA updater (origin allowlist + signature check)
 app/src/debug     VHAL probe tools, absent from every release build
 app/src/test      JVM unit tests
 ```

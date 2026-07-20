@@ -49,9 +49,9 @@ anything inside the service effectively cannot be tested without a car.
 |---|---|---|
 | `main` | everything shared | all builds |
 | `stable` | `UpdateHook` no-op | stable channel |
-| `nightly` | `OtaUpdater`, `ApkSignature`, `UpdateHook` | nightly channel |
+| `unstable` | `OtaUpdater`, `ApkSignature`, `UpdateHook` | unstable channel |
 | `debug` | `VhalProbe` — enumerates the whole VHAL | debug builds only |
-| `testNightly` | OTA policy tests | test only |
+| `testUnstable` | OTA policy tests | test only |
 
 The stable channel does not merely disable self-update — the updater is **not in the
 APK**.

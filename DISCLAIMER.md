@@ -17,7 +17,7 @@ otherwise, arising from, out of or in connection with the software or its use.
   require attention on the move, and looking at a screen instead of the road is on you.
 - Telemetry may be **wrong, delayed or missing**. Never rely on it for range or charging
   decisions where being wrong matters — check the car's own instruments.
-- The **nightly channel is untested on vehicles** by definition. It builds automatically
+- The **unstable channel is untested on vehicles** by definition. It builds automatically
   from `main` and updates itself. Run it only if you accept that.
 - Vehicle data is uploaded to **A Better Route Planner**, a third-party service governed
   by its own terms and privacy policy. This project has no control over what happens to

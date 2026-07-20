@@ -14,7 +14,7 @@ was moving. A proof of concept helps; a working exploit is not required.
 ## What is in scope
 
 - Anything that lets another app on the head unit read the stored ABRP credentials.
-- Anything that gets attacker-controlled code installed through the nightly updater.
+- Anything that gets attacker-controlled code installed through the unstable updater.
 - Anything that makes the app write to the vehicle. **It should never write at all** — this
   app is read-only towards the car — so any write path is a bug by definition.
 - Telemetry that leaks credentials into logs, URLs or crash reports.
@@ -30,7 +30,7 @@ was moving. A proof of concept helps; a working exploit is not required.
 
 - Credentials live in `EncryptedSharedPreferences` and are sent in a POST body, never a
   URL. `allowBackup` is off and both preference files are excluded from backup rules.
-- The nightly updater accepts an APK only over https, only from an exact-match GitHub host
+- The unstable updater accepts an APK only over https, only from an exact-match GitHub host
   allowlist, and only when its signing certificate matches the running app's. All three
   checks fail closed. The stable channel does not contain the updater at all.
 - The VHAL probe helpers, which enumerate the whole vehicle abstraction layer, exist only

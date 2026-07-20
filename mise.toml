@@ -74,7 +74,7 @@ run = './gradlew -Dorg.gradle.java.home=$JAVA_HOME assembleStableDebug'
 
 [tasks.test]
 description = "Tests unitaires JVM"
-run = './gradlew -Dorg.gradle.java.home=$JAVA_HOME testStableDebugUnitTest testNightlyDebugUnitTest'
+run = './gradlew -Dorg.gradle.java.home=$JAVA_HOME testStableDebugUnitTest testUnstableDebugUnitTest'
 
 [tasks.lint]
 description = "Analyse lint Android"
@@ -97,8 +97,8 @@ description = "Suit les logs de l'app sur le véhicule"
 run = "adb logcat -s AbrpUploadService:V CarPropertyAdapter:V VhalProbe:V SecurePrefs:V OtaUpdater:V UpdateHook:V"
 
 [tasks.release]
-description = "APK release des deux canaux (stable sans OTA, nightly avec OTA)"
-run = './gradlew -Dorg.gradle.java.home=$JAVA_HOME assembleStableRelease assembleNightlyRelease'
+description = "APK release des deux canaux (stable sans OTA, unstable avec OTA)"
+run = './gradlew -Dorg.gradle.java.home=$JAVA_HOME assembleStableRelease assembleUnstableRelease'
 
 [tasks.clean]
 run = './gradlew -Dorg.gradle.java.home=$JAVA_HOME clean'

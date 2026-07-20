@@ -47,7 +47,7 @@ android {
     // Deux canaux de distribution :
     //  - stable  : diffusé en release taguée, AUCUN auto-update. L'utilisateur installe
     //              lui-même ; rien dans l'app ne va chercher un APK.
-    //  - nightly : pré-releases et builds nocturnes, avec OTA pour que les testeurs
+    //  - unstable : pré-releases publiées à chaque push sur master, avec OTA pour que les testeurs
     //              soient à jour sans manipulation. Installable à côté du stable.
     flavorDimensions += "channel"
     productFlavors {
@@ -55,15 +55,15 @@ android {
             dimension "channel"
             buildConfigField "boolean", "OTA_ENABLED", "false"
         }
-        nightly {
+        unstable {
             dimension "channel"
-            applicationIdSuffix ".nightly"
+            applicationIdSuffix ".unstable"
             // Le numéro de build fait partie du COEUR numérique de la version
-            // ("1.0.42-nightly"), pas du suffixe : l'updater compare des segments
-            // numériques, donc deux nightlies doivent différer avant le premier tiret.
-            // -PnightlyBuild=<n> est passé par la CI ; 0 en local.
-            versionName "${defaultConfig.versionName}.${project.findProperty('nightlyBuild') ?: '0'}"
-            versionNameSuffix "-nightly"
+            // ("1.0.42-unstable"), pas du suffixe : l'updater compare des segments
+            // numériques, donc deux builds unstable doivent différer avant le premier tiret.
+            // -PunstableBuild=<n> est passé par la CI ; 0 en local.
+            versionName "${defaultConfig.versionName}.${project.findProperty('unstableBuild') ?: '0'}"
+            versionNameSuffix "-unstable"
             buildConfigField "boolean", "OTA_ENABLED", "true"
         }
     }
@@ -99,10 +99,10 @@ android {
 }
 
 // Version publiée par la CI pour composer le tag de la pré-release : le tag DOIT être
-// comparable par l'updater, donc "v1.0.42" et non "nightly-42".
-tasks.register('printNightlyVersion') {
+// comparable par l'updater, donc "v1.0.42" et non "unstable-42".
+tasks.register('printUnstableVersion') {
     doLast {
-        println "${android.defaultConfig.versionName}.${project.findProperty('nightlyBuild') ?: '0'}"
+        println "${android.defaultConfig.versionName}.${project.findProperty('unstableBuild') ?: '0'}"
     }
 }
 
@@ -111,8 +111,11 @@ androidComponents {
     onVariants(selector().all()) { variant ->
         variant.outputs.each { output ->
             if (variant.buildType == "release") {
-                output.outputFileName.set(
-                        "MG4AbrpTelemetry-${variant.flavorName}-${output.versionName.get()}.apk")
+                // Le canal unstable garde un nom de fichier stable : l'updater identifie
+                // la version par le tag de la pré-release, jamais par le nom d'APK.
+                output.outputFileName.set(variant.flavorName == "unstable"
+                        ? "MG4AbrpTelemetry-unstable.apk"
+                        : "MG4AbrpTelemetry-${variant.flavorName}-${output.versionName.get()}.apk")
             }
         }
     }

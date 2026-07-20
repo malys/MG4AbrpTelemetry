@@ -13,7 +13,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-/** SHA-256 fingerprints of the certificates signing an APK. Nightly builds only. */
+/** SHA-256 fingerprints of the certificates signing an APK. Unstable builds only. */
 final class ApkSignature {
 
     private static final String TAG = "ApkSignature";

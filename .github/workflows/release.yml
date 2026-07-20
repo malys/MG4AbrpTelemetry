@@ -78,7 +78,7 @@ jobs:
             release server or downloads an APK.
 
             If you want builds that update themselves, use a
-            [nightly pre-release](../../releases) instead — at that channel's risk.
+            [unstable pre-release](../../releases) instead — at that channel's risk.
 
             ### Install
             Copy the APK to a USB stick, open the Files app on the car and tap it.

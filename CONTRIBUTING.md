@@ -25,7 +25,7 @@ or, without mise:
 
 ```bash
 bash .github/security/check-permissions.sh
-./gradlew testStableDebugUnitTest testNightlyDebugUnitTest lintStableDebug
+./gradlew testStableDebugUnitTest testUnstableDebugUnitTest lintStableDebug
 ```
 
 New behaviour needs a unit test. The pure-logic classes — `TelemetryPayload`,
@@ -41,7 +41,7 @@ deliberate: an app on someone's car should not gain capabilities quietly.
 ## Channels
 
 - `stable` — tagged releases, no self-update, no updater code in the APK.
-- `nightly` — automated pre-releases that update themselves.
+- `unstable` — automated pre-releases that update themselves.
 
 If you touch the updater, remember it installs code on a vehicle: the origin allowlist and
 the signature check are the whole defence.

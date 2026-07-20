@@ -87,7 +87,7 @@ public class MainActivity extends AppCompatActivity {
 
         bindCadenceControls();
 
-        // Nightly builds check for a newer pre-release; the stable flavor's UpdateHook is
+        // Unstable builds check for a newer pre-release; the stable flavor's UpdateHook is
         // a no-op and does not even contain the updater.
         UpdateHook.checkInBackground(this);
 

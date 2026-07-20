@@ -7,10 +7,9 @@ import android.util.Log;
 import android.widget.Toast;
 
 import java.io.File;
-import java.util.Locale;
 
 /**
- * Nightly channel: checks GitHub pre-releases and downloads a newer nightly APK.
+ * Unstable channel: checks GitHub pre-releases and downloads a newer unstable APK.
  *
  * The install itself stays manual — the user taps the downloaded file. The app is not
  * privileged enough to install silently, and asking for that privilege to save one tap on
@@ -19,12 +18,6 @@ import java.util.Locale;
 final class UpdateHook {
 
     private static final String TAG = "UpdateHook";
-
-    private static String safeVersionComponent(String versionName) {
-        if (versionName == null || versionName.isEmpty()) return "unknown";
-        String normalized = versionName.toLowerCase(Locale.US);
-        return normalized.replaceAll("[^a-z0-9._-]", "_");
-    }
 
     private UpdateHook() { }
 
@@ -41,16 +34,15 @@ final class UpdateHook {
 
                 OtaUpdater.Update update = OtaUpdater.check(current);
                 if (update == null) {
-                    Log.i(TAG, "No newer nightly than " + current);
+                    Log.i(TAG, "No newer unstable than " + current);
                     return;
                 }
 
                 // Anything already downloaded is verified before the user is pointed at it:
                 // a file in public Downloads can be swapped by another app.
-                String safeVersionName = safeVersionComponent(update.versionName);
                 File existing = new File(
                         Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                        "MG4AbrpTelemetry-nightly-" + safeVersionName + ".apk");
+                        OtaUpdater.downloadFileName(update.versionName));
                 if (existing.isFile()) {
                     if (!OtaUpdater.signatureMatchesRunningApp(app, existing)) {
                         // Signed by someone else: delete rather than leave it where a user
@@ -66,7 +58,7 @@ final class UpdateHook {
                 OtaUpdater.download(app, update);
                 new android.os.Handler(android.os.Looper.getMainLooper()).post(() ->
                         Toast.makeText(app,
-                                "Downloading nightly " + update.versionName,
+                                "Downloading unstable " + update.versionName,
                                 Toast.LENGTH_LONG).show());
             } catch (PackageManager.NameNotFoundException e) {
                 Log.w(TAG, "Cannot read our own version", e);
