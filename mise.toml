@@ -1,0 +1,103 @@
+# Environnement de développement — MG4 ABRP Telemetry.
+#
+# Commité volontairement : il décrit comment construire le projet, pas la machine de
+# quelqu'un. Les chemins passent par {{env.HOME}} / JAVA_HOME, jamais en dur.
+# Pour une surcharge locale (chemin de keystore, SDK ailleurs), créer un mise.local.toml
+# — celui-là reste ignoré par git.
+#
+#   mise install       installe le JDK
+#   mise run bootstrap installe le SDK Android si absent
+#   mise run test      tests unitaires
+#   mise tasks         liste tout
+#
+# Pourquoi épingler le JDK : le JDK par défaut de la machine (26) n'est pas supporté
+# par AGP et fait échouer le build avec une erreur de version de classe peu parlante.
+
+[tools]
+java = "17"
+
+[env]
+ANDROID_HOME = "{{env.HOME}}/Android/Sdk"
+ANDROID_SDK_ROOT = "{{env.HOME}}/Android/Sdk"
+_.path = [
+    "{{env.HOME}}/Android/Sdk/platform-tools",
+    "{{env.HOME}}/Android/Sdk/cmdline-tools/latest/bin",
+]
+
+# Version du SDK requise par app/build.gradle (compileSdk = 36).
+COMPILE_SDK = "36"
+BUILD_TOOLS = "36.0.0"
+
+# Secrets de signature : à définir hors du dépôt (T-911). Décommenter et pointer vers
+# un keystore local, JAMAIS vers un fichier du dépôt.
+# ABRP_KEYSTORE = "{{env.HOME}}/.keystores/abrp.keystore"
+# ABRP_KEYSTORE_PASSWORD = "…"
+# ABRP_KEY_ALIAS = "platform"
+# ABRP_KEY_PASSWORD = "…"
+
+# Gradle doit tourner sur le JDK que mise vient d'installer. Sans -Dorg.gradle.java.home,
+# Gradle peut réutiliser un daemon lancé par un autre JDK — typiquement celui embarqué par
+# l'extension Java de VS Code, un JRE 21 sans jlink : le build échoue alors sur
+# JdkImageTransform, avec un message qui n'a rien à voir avec le code.
+# JAVA_HOME est posé par [tools] ci-dessus : $JAVA_HOME est résolu par le shell au moment
+# de l'exécution, donc ceci reste portable d'une machine à l'autre.
+[tasks.bootstrap]
+description = "Installe le SDK Android (platform + build-tools) s'il manque"
+run = """
+set -e
+if [ -d "$ANDROID_HOME/platforms/android-$COMPILE_SDK" ]; then
+  echo "SDK $COMPILE_SDK déjà présent → rien à faire"
+  exit 0
+fi
+mkdir -p "$ANDROID_HOME"
+if [ ! -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
+  echo "Téléchargement des commandline-tools…"
+  tmp=$(mktemp -d)
+  curl -sSL -o "$tmp/tools.zip" \
+    https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+  unzip -q "$tmp/tools.zip" -d "$tmp"
+  mkdir -p "$ANDROID_HOME/cmdline-tools"
+  mv "$tmp/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+  rm -rf "$tmp"
+fi
+yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" --licenses > /dev/null
+"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" \
+  "platform-tools" "platforms;android-$COMPILE_SDK" "build-tools;$BUILD_TOOLS"
+echo "sdk.dir=$ANDROID_HOME" > local.properties
+echo "SDK installé, local.properties écrit"
+"""
+
+[tasks.build]
+description = "Compile l'APK debug"
+run = './gradlew -Dorg.gradle.java.home=$JAVA_HOME assembleStableDebug'
+
+[tasks.test]
+description = "Tests unitaires JVM"
+run = './gradlew -Dorg.gradle.java.home=$JAVA_HOME testStableDebugUnitTest testNightlyDebugUnitTest'
+
+[tasks.lint]
+description = "Analyse lint Android"
+run = './gradlew -Dorg.gradle.java.home=$JAVA_HOME lintStableDebug'
+
+[tasks.permissions]
+description = "Contrôle de dérive des permissions (le même que la CI)"
+run = "bash .github/security/check-permissions.sh"
+
+[tasks.check]
+description = "Ce que la CI exécute : permissions + lint + tests"
+depends = ["permissions", "lint", "test"]
+
+[tasks.install]
+description = "Installe l'APK debug sur le véhicule connecté en ADB"
+run = './gradlew -Dorg.gradle.java.home=$JAVA_HOME installStableDebug'
+
+[tasks.logs]
+description = "Suit les logs de l'app sur le véhicule"
+run = "adb logcat -s AbrpUploadService:V CarPropertyAdapter:V VhalProbe:V SecurePrefs:V OtaUpdater:V UpdateHook:V"
+
+[tasks.release]
+description = "APK release des deux canaux (stable sans OTA, nightly avec OTA)"
+run = './gradlew -Dorg.gradle.java.home=$JAVA_HOME assembleStableRelease assembleNightlyRelease'
+
+[tasks.clean]
+run = './gradlew -Dorg.gradle.java.home=$JAVA_HOME clean'

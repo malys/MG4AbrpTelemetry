@@ -14,7 +14,7 @@
 .cxx
 local.properties
 
-# Environnement de dev local (mise) — machine-spécifique, jamais commité
-mise.toml
+# mise : mise.toml est COMMITÉ (il décrit le build). Seules les surcharges
+# locales, machine-spécifiques, sont ignorées.
 mise.local.toml
-.mise.toml
+.mise.local.toml
