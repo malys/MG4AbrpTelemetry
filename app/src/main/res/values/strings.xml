@@ -27,6 +27,24 @@
     <string name="label_upload_enabled">Enable background uploading</string>
 
     <string name="status_stopped">Service not running</string>
+
+    <!-- Cadence configuration -->
+    <string name="label_frequency">Upload frequency</string>
+    <string name="hint_frequency">Applies while driving. Parked and unplugged, the app backs off to one upload every 15 minutes on its own.</string>
+    <string name="label_boost_low_soc">Upload more often at low battery</string>
+    <string name="label_low_soc_threshold">Low battery threshold (%)</string>
+    <string name="interval_seconds">Every %1$d seconds</string>
+    <string name="interval_minutes">Every %1$d minutes</string>
+
+    <!-- Service state -->
+    <string name="state_stopped">Stopped</string>
+    <string name="state_starting">Starting…</string>
+    <string name="state_running">Running</string>
+    <string name="state_error">In error — last %1$d uploads failed</string>
+
+    <!-- Call log -->
+    <string name="label_call_log">Recent uploads</string>
+    <string name="call_log_empty">No upload attempted yet.</string>
     <string name="status_starting">Starting…</string>
     <string name="status_running_no_upload">Running — waiting for first upload</string>
     <string name="status_last_upload">Last upload: %1$s (%2$s)</string>

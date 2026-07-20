@@ -51,6 +51,21 @@ public class AbrpUploadService extends Service {
 
     public static boolean isRunning() { return running; }
 
+    /**
+     * Upload history, shared with the UI. Static because the activity reads it while the
+     * service owns it; it lives and dies with the process, like {@link #running}.
+     */
+    private static final UploadLog uploadLog = new UploadLog();
+
+    public static UploadLog log() { return uploadLog; }
+
+    public static UploadLog.State state() { return uploadLog.state(running); }
+
+    /** Re-read after the user changes the cadence, without restarting the service. */
+    public static void reloadSettings() { settingsDirty = true; }
+
+    private static volatile boolean settingsDirty = false;
+
     private static final String TAG             = "AbrpUploadService";
     private static final String CHANNEL_ID      = "abrp_uploader";
     private static final int    NOTIF_ID        = 1;
@@ -85,6 +100,7 @@ public class AbrpUploadService extends Service {
     private volatile Boolean lastParked = null;
     private volatile Boolean lastCharging = null;
     private volatile long lastUploadAttemptMs = 0L;
+    private volatile UploadSettings settings = UploadSettings.defaults();
     /** False while no GPS subscription is delivering — drives the watchdog re-arm. */
     private volatile boolean locationUpdatesActive = false;
     private volatile long lastLocationRequestMs = 0L;
@@ -96,6 +112,8 @@ public class AbrpUploadService extends Service {
         super.onCreate();
         prefs       = getSharedPreferences("abrp_prefs", MODE_PRIVATE);
         securePrefs = SecurePrefs.get(this);
+        settings    = UploadSettings.from(prefs);
+        uploadLog.clear();
         mainHandler = new Handler(Looper.getMainLooper());
         scheduler   = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "abrp-upload");
@@ -180,6 +198,16 @@ public class AbrpUploadService extends Service {
 
     private void safeUploadCycle() {
         try {
+            if (settingsDirty) {
+                settingsDirty = false;
+                settings = UploadSettings.from(prefs);
+                // The GPS subscription is a power cost of its own; keep it in step with
+                // how often we actually send.
+                mainHandler.post(this::requestLocationUpdates);
+                Log.i(TAG, "Settings reloaded: interval=" + settings.intervalSec + "s"
+                        + " boostLowSoc=" + settings.boostLowSoc
+                        + " lowSoc=" + settings.lowSocPercent + "%");
+            }
             // Self-watchdog: if the car adapter looks dead and we haven't tried
             // reconnecting recently, kick a reconnect.
             if ((carAdapter == null || !carAdapter.isConnected())
@@ -278,7 +306,7 @@ public class AbrpUploadService extends Service {
         // Cadence is measured on ATTEMPTS, not successes: keying it on the last success
         // would retry every tick while offline, which is exactly when saving power matters.
         if (!UploadCadence.shouldUpload(System.currentTimeMillis(), lastUploadAttemptMs,
-                parked, charging, stateChanged)) {
+                parked, charging, soc, stateChanged, settings)) {
             return;
         }
         lastUploadAttemptMs = System.currentTimeMillis();
@@ -306,6 +334,9 @@ public class AbrpUploadService extends Service {
             // The response body can echo request details — debug builds only.
             if (BuildConfig.DEBUG) Log.d(TAG, "ABRP [" + code + "]: " + response.body);
 
+            uploadLog.record(new UploadLog.Entry(System.currentTimeMillis(), code,
+                    code == 200, code == 200 ? "OK" : ("HTTP " + code)));
+
             if (code == 200) {
                 lastSuccessfulUploadMs = System.currentTimeMillis();
                 String time = android.text.format.DateFormat
@@ -321,13 +352,21 @@ public class AbrpUploadService extends Service {
                 updateNotification(detail);
             } else {
                 prefs.edit().putString("last_upload_status", "HTTP " + code).apply();
-                updateNotification("Upload error: HTTP " + code);
+                int failures = uploadLog.consecutiveFailures();
+                updateNotification(failures >= UploadLog.FAILURES_FOR_ERROR
+                        ? ("Upload failing (" + failures + "x) — HTTP " + code)
+                        : ("Upload error: HTTP " + code));
             }
         } catch (java.net.UnknownHostException e) {
+            // httpStatus 0: the request never reached a server.
+            uploadLog.record(new UploadLog.Entry(
+                    System.currentTimeMillis(), 0, false, "No internet"));
             prefs.edit().putString("last_upload_status", "No internet").apply();
             updateNotification("Offline — will retry");
         } catch (Exception e) {
             Log.e(TAG, "Upload failed", e);
+            uploadLog.record(new UploadLog.Entry(System.currentTimeMillis(), 0, false,
+                    e.getClass().getSimpleName()));
             prefs.edit().putString("last_upload_status",
                     e.getClass().getSimpleName() + ": " + e.getMessage()).apply();
         }
@@ -365,8 +404,10 @@ public class AbrpUploadService extends Service {
             locationUpdatesActive = false;
 
             if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                // Match the upload cadence: a 10 s GPS subscription burned power for
+                // fixes that were thrown away between uploads.
                 locationManager.requestLocationUpdates(
-                        LocationManager.GPS_PROVIDER, 10_000, 0f,
+                        LocationManager.GPS_PROVIDER, settings.intervalMs(), 0f,
                         locationListener, Looper.getMainLooper());
                 locationUpdatesActive = true;
                 lastLocationRequestMs = System.currentTimeMillis();

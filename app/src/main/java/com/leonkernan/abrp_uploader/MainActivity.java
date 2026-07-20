@@ -7,7 +7,10 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.Spinner;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -38,6 +41,22 @@ public class MainActivity extends AppCompatActivity {
     private View              connectionStatusRow;
     private View              connectionIndicator;
     private TextView          connectionStatusText;
+    private Spinner intervalSpinner;
+    private SwitchMaterial boostSwitch;
+    private TextInputEditText lowSocInput;
+    private TextInputLayout lowSocLayout;
+    private TextView callLogText;
+
+    /** Refreshes state + call log while the screen is visible. */
+    private final android.os.Handler uiHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable uiRefresh = new Runnable() {
+        @Override public void run() {
+            refreshStatus();
+            refreshCallLog();
+            uiHandler.postDelayed(this, 2_000L);
+        }
+    };
+
     private SharedPreferences prefs;
     /** Credentials only — encrypted at rest, see {@link SecurePrefs}. */
     private SharedPreferences securePrefs;
@@ -60,6 +79,13 @@ public class MainActivity extends AppCompatActivity {
         connectionStatusRow = findViewById(R.id.connection_status_row);
         connectionIndicator = findViewById(R.id.connection_indicator);
         connectionStatusText = findViewById(R.id.connection_status_text);
+        intervalSpinner = findViewById(R.id.interval_spinner);
+        boostSwitch = findViewById(R.id.boost_switch);
+        lowSocInput = findViewById(R.id.low_soc_input);
+        lowSocLayout = findViewById(R.id.low_soc_layout);
+        callLogText = findViewById(R.id.call_log_text);
+
+        bindCadenceControls();
 
         apiKeyInput.setText(securePrefs.getString(SecurePrefs.KEY_API_KEY, ""));
         tokenInput.setText(securePrefs.getString(SecurePrefs.KEY_TOKEN, ""));
@@ -111,7 +137,8 @@ public class MainActivity extends AppCompatActivity {
         apiKeyInput.setText(securePrefs.getString(SecurePrefs.KEY_API_KEY, ""));
         tokenInput.setText(securePrefs.getString(SecurePrefs.KEY_TOKEN, ""));
         serviceSwitch.setChecked(prefs.getBoolean("service_enabled", false));
-        refreshStatus();
+        // Poll state and log only while the screen is up; onPause cancels it.
+        uiHandler.post(uiRefresh);
     }
 
     // ---------- Credentials ----------
@@ -198,6 +225,98 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // Stop polling off-screen: this activity has no reason to spend cycles then.
+        uiHandler.removeCallbacks(uiRefresh);
+    }
+
+    // ---------- Cadence configuration ----------
+
+    private void bindCadenceControls() {
+        UploadSettings current = UploadSettings.from(prefs);
+
+        String[] labels = new String[UploadSettings.INTERVAL_CHOICES_SEC.length];
+        int selected = 0;
+        for (int i = 0; i < UploadSettings.INTERVAL_CHOICES_SEC.length; i++) {
+            int sec = UploadSettings.INTERVAL_CHOICES_SEC[i];
+            labels[i] = sec >= 60
+                    ? getString(R.string.interval_minutes, sec / 60)
+                    : getString(R.string.interval_seconds, sec);
+            if (sec == current.intervalSec) selected = i;
+        }
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                this, android.R.layout.simple_spinner_item, labels);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        intervalSpinner.setAdapter(adapter);
+        intervalSpinner.setSelection(selected);
+        intervalSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                prefs.edit().putInt(UploadSettings.KEY_INTERVAL_SEC,
+                        UploadSettings.INTERVAL_CHOICES_SEC[position]).apply();
+                // Takes effect on the next cycle — no service restart needed.
+                AbrpUploadService.reloadSettings();
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) { }
+        });
+
+        boostSwitch.setChecked(current.boostLowSoc);
+        lowSocLayout.setEnabled(current.boostLowSoc);
+        lowSocInput.setEnabled(current.boostLowSoc);
+        boostSwitch.setOnCheckedChangeListener((button, checked) -> {
+            prefs.edit().putBoolean(UploadSettings.KEY_BOOST_LOW_SOC, checked).apply();
+            lowSocLayout.setEnabled(checked);
+            lowSocInput.setEnabled(checked);
+            AbrpUploadService.reloadSettings();
+        });
+
+        lowSocInput.setText(String.valueOf(current.lowSocPercent));
+        lowSocInput.setOnFocusChangeListener((view, hasFocus) -> {
+            if (!hasFocus) saveLowSocThreshold();
+        });
+    }
+
+    /** Clamped to 1-99: 0 would never trigger and 100 would boost permanently. */
+    private void saveLowSocThreshold() {
+        CharSequence raw = lowSocInput.getText();
+        int value;
+        try {
+            value = Integer.parseInt(raw == null ? "" : raw.toString().trim());
+        } catch (NumberFormatException e) {
+            value = UploadSettings.DEFAULT_LOW_SOC_PERCENT;
+        }
+        value = Math.max(1, Math.min(99, value));
+        lowSocInput.setText(String.valueOf(value));
+        prefs.edit().putInt(UploadSettings.KEY_LOW_SOC_PERCENT, value).apply();
+        AbrpUploadService.reloadSettings();
+    }
+
+    // ---------- Call log ----------
+
+    private void refreshCallLog() {
+        java.util.List<UploadLog.Entry> entries = AbrpUploadService.log().recent();
+        if (entries.isEmpty()) {
+            callLogText.setText(R.string.call_log_empty);
+            return;
+        }
+        java.text.SimpleDateFormat format =
+                new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US);
+        StringBuilder sb = new StringBuilder();
+        for (UploadLog.Entry entry : entries) {
+            if (sb.length() > 0) sb.append('\n');
+            sb.append(entry.success ? "OK  " : "ERR ")
+              .append(format.format(new java.util.Date(entry.timestampMs)))
+              .append("  ")
+              // httpStatus 0 means the request never reached a server.
+              .append(entry.httpStatus > 0 ? String.valueOf(entry.httpStatus) : "---")
+              .append("  ")
+              .append(entry.detail);
+        }
+        callLogText.setText(sb.toString());
+    }
+
     private void setConnectionStatus(int color, String message) {
         connectionStatusRow.setVisibility(View.VISIBLE);
         connectionIndicator.getBackground().setTint(color);
@@ -210,22 +329,33 @@ public class MainActivity extends AppCompatActivity {
     private void refreshStatus() {
         // Live signal, not the preference: "service_running" stays stale-true after a
         // force-kill because onDestroy never ran.
-        boolean running = AbrpUploadService.isRunning();
-        boolean enabled = prefs.getBoolean("service_enabled", false);
+        UploadLog.State state = AbrpUploadService.state();
 
-        if (enabled && running) {
-            String lastTime   = prefs.getString("last_upload_time",   null);
-            String lastStatus = prefs.getString("last_upload_status", null);
-            if (lastTime != null) {
-                statusText.setText(getString(R.string.status_last_upload, lastTime,
-                        "OK".equals(lastStatus) ? getString(R.string.status_ok) : lastStatus));
-            } else {
-                statusText.setText(R.string.status_running_no_upload);
-            }
-        } else if (enabled) {
-            statusText.setText(R.string.status_starting);
-        } else {
-            statusText.setText(R.string.status_stopped);
+        switch (state) {
+            case ERROR:
+                // Derived from the log, not from the last status alone: a single failed
+                // upload is normal (tunnel, dead spot), three in a row is a problem.
+                statusText.setText(getString(R.string.state_error,
+                        AbrpUploadService.log().consecutiveFailures()));
+                statusText.setTextColor(COLOR_ERROR);
+                break;
+            case RUNNING:
+                String lastTime = prefs.getString("last_upload_time", null);
+                statusText.setText(lastTime != null
+                        ? getString(R.string.status_last_upload, lastTime,
+                                getString(R.string.status_ok))
+                        : getString(R.string.state_running));
+                statusText.setTextColor(COLOR_OK);
+                break;
+            case STARTING:
+                statusText.setText(R.string.state_starting);
+                statusText.setTextColor(COLOR_OK);
+                break;
+            case STOPPED:
+            default:
+                statusText.setText(R.string.state_stopped);
+                statusText.setTextColor(android.graphics.Color.GRAY);
+                break;
         }
     }
 

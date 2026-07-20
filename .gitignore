@@ -13,3 +13,8 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Environnement de dev local (mise) — machine-spécifique, jamais commité
+mise.toml
+mise.local.toml
+.mise.toml
