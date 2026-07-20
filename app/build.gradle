@@ -43,7 +43,10 @@ android {
             if (platformSigning != null) signingConfig platformSigning
         }
         release {
-            minifyEnabled false
+            // [T-918] R8 enabled. CarPropertyAdapter reaches the car purely by
+            // reflection, so proguard-rules.pro must keep those targets; a release build
+            // needs an on-vehicle check of the car reads before it ships.
+            minifyEnabled true
             if (platformSigning != null) signingConfig platformSigning
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
@@ -51,6 +54,12 @@ android {
     // BuildConfig.DEBUG gates the debug-only logging (T-912).
     buildFeatures {
         buildConfig true
+    }
+
+    lint {
+        abortOnError true
+        checkReleaseBuilds true
+        warningsAsErrors false
     }
 
     compileOptions {

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Lint policy for a vehicle-deployed app.
+  Anything that can crash the app on AAOS, leak credentials, or silently break the
+  upload is an error, not a warning.
+-->
+<lint>
+    <!-- Crash risks on the vehicle -->
+    <issue id="NewApi" severity="error" />
+    <issue id="InlinedApi" severity="error" />
+
+    <!-- Security: this app holds ABRP credentials and talks to the network -->
+    <issue id="HardcodedText" severity="warning" />
+    <issue id="SetJavaScriptEnabled" severity="error" />
+    <issue id="TrustAllX509TrustManager" severity="error" />
+    <issue id="UnsafeProtectedBroadcastReceiver" severity="error" />
+    <issue id="ExportedService" severity="error" />
+    <issue id="ExportedReceiver" severity="error" />
+    <issue id="AllowBackup" severity="error" />
+
+    <!-- Reliability of a long-running foreground service -->
+    <issue id="Recycle" severity="error" />
+    <issue id="Wakelock" severity="error" />
+
+    <!-- Unavoidable by design: android.car is not on the compile classpath on this
+         head unit, so CarPropertyAdapter can only reach it through reflection. -->
+    <issue id="PrivateApi" severity="ignore" />
+
+    <!-- Deliberate in SecurePrefs: the credential migration must be on disk before the
+         plaintext copy is deleted, so apply() (async) would risk losing the credentials
+         if the process died in between. -->
+    <issue id="ApplySharedPref" severity="ignore" />
+
+    <!-- Not useful here: the app targets one known head unit -->
+    <issue id="MissingTranslation" severity="ignore" />
+    <issue id="GoogleAppIndexingWarning" severity="ignore" />
+</lint>

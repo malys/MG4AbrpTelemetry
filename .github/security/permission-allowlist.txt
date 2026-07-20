@@ -1,0 +1,23 @@
+# Allowed permissions for ABRP_Uploader.
+# Any uses-permission in a manifest NOT listed here FAILS the CI.
+# Why: the app runs on a moving vehicle and uploads to a third party — any new
+# permission (especially network or vehicle-read) must be reviewed and added
+# here explicitly.
+# One line = one full permission name. '#' = comment.
+
+android.permission.INTERNET
+android.permission.RECEIVE_BOOT_COMPLETED
+android.permission.FOREGROUND_SERVICE
+# Required from API 33 to post the foreground-service notification.
+android.permission.POST_NOTIFICATIONS
+android.permission.FOREGROUND_SERVICE_LOCATION
+android.permission.ACCESS_FINE_LOCATION
+android.permission.ACCESS_COARSE_LOCATION
+# --- vehicle data (read-only: this app never writes to the car) ---
+android.car.permission.CAR_SPEED
+android.car.permission.CAR_POWERTRAIN
+android.car.permission.CAR_ENERGY
+android.car.permission.CAR_ENERGY_PORTS
+android.car.permission.CAR_EXTERIOR_ENVIRONMENT
+android.car.permission.CONTROL_CAR_CLIMATE
+android.car.permission.CAR_VENDOR_EXTENSION
