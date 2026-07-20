@@ -54,7 +54,14 @@ public class AbrpUploadService extends Service {
     private static final String TAG             = "AbrpUploadService";
     private static final String CHANNEL_ID      = "abrp_uploader";
     private static final int    NOTIF_ID        = 1;
+    /** Scheduler tick. Whether a tick uploads is decided by {@link UploadCadence}. */
     private static final long   UPLOAD_INTERVAL_SEC = 15;
+    /**
+     * Warm-up before the first upload. Was 45 s with no stated reason; the car adapter
+     * connects asynchronously and telemetry now omits whatever it cannot read (T-913), so
+     * an early first sample is useful rather than misleading.
+     */
+    private static final long   FIRST_UPLOAD_DELAY_SEC = 20;
     private static final long   CAR_RECONNECT_INTERVAL_SEC = 30;
     private static final long   LOCATION_RETRY_INTERVAL_SEC = 30;
 
@@ -74,6 +81,10 @@ public class AbrpUploadService extends Service {
 
     private volatile long lastSuccessfulUploadMs = 0L;
     private volatile long lastCarConnectAttemptMs = 0L;
+    /** Previous tick's state, to detect a transition worth reporting immediately. */
+    private volatile Boolean lastParked = null;
+    private volatile Boolean lastCharging = null;
+    private volatile long lastUploadAttemptMs = 0L;
     /** False while no GPS subscription is delivering — drives the watchdog re-arm. */
     private volatile boolean locationUpdatesActive = false;
     private volatile long lastLocationRequestMs = 0L;
@@ -105,7 +116,7 @@ public class AbrpUploadService extends Service {
         // between cycles even if a previous upload was slow.
         scheduler.scheduleWithFixedDelay(
                 this::safeUploadCycle,
-                45, UPLOAD_INTERVAL_SEC, TimeUnit.SECONDS);
+                FIRST_UPLOAD_DELAY_SEC, UPLOAD_INTERVAL_SEC, TimeUnit.SECONDS);
 
         Log.i(TAG, "Service started, upload scheduler armed");
     }
@@ -256,6 +267,21 @@ public class AbrpUploadService extends Service {
         Float cabinTemp = carUp ? carAdapter.getFloatProperty(
                 CarPropertyAdapter.PROP_CABIN_TEMP,
                 CarPropertyAdapter.PROP_AREA_HVAC) : null;
+
+        // Thin out uploads while the car is parked and not charging. Evaluated here, once
+        // parked/charging are known, so a transition is never delayed.
+        boolean stateChanged = !java.util.Objects.equals(parked, lastParked)
+                            || !java.util.Objects.equals(charging, lastCharging);
+        lastParked = parked;
+        lastCharging = charging;
+
+        // Cadence is measured on ATTEMPTS, not successes: keying it on the last success
+        // would retry every tick while offline, which is exactly when saving power matters.
+        if (!UploadCadence.shouldUpload(System.currentTimeMillis(), lastUploadAttemptMs,
+                parked, charging, stateChanged)) {
+            return;
+        }
+        lastUploadAttemptMs = System.currentTimeMillis();
 
         long utc = System.currentTimeMillis() / 1000;
         Location loc = lastLocation;
