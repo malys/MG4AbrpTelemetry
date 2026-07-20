@@ -1,0 +1,61 @@
+name: Bug report
+description: Something misbehaves on the car
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please do not report security issues here — see
+        [SECURITY.md](../blob/main/SECURITY.md) for private reporting.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: dropdown
+    id: channel
+    attributes:
+      label: Channel
+      options: ["Stable", "Nightly", "Built from source"]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Shown on the GitHub release you installed, e.g. v1.2.0 or nightly-42.
+    validations:
+      required: true
+  - type: input
+    id: firmware
+    attributes:
+      label: Car firmware
+      description: "MG4 infotainment version, e.g. SWI133. Settings → About."
+  - type: dropdown
+    id: moving
+    attributes:
+      label: Was the car moving?
+      options: ["Parked", "Driving", "Charging", "Not sure"]
+  - type: textarea
+    id: state
+    attributes:
+      label: Service state and recent uploads
+      description: >
+        From the app's main screen: the service state, and the last few lines of the
+        upload list (status codes and reasons).
+      render: text
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: "`adb logcat -s AbrpUploadService:V CarPropertyAdapter:V` if you can get them."
+      render: text
+  - type: checkboxes
+    id: creds
+    attributes:
+      label: Confirmation
+      options:
+        - label: I have removed my ABRP API key and token from anything I pasted above.
+          required: true

@@ -1,0 +1,97 @@
+name: Nightly
+
+# Nightly / pre-release channel. These builds DO self-update: the app checks GitHub
+# pre-releases and downloads a newer nightly APK (origin allowlist + signature check).
+on:
+  schedule:
+    # 03:00 UTC, only if something landed — see the guard step below.
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and publish nightly APK
+    runs-on: ubuntu-latest
+    env:
+      ABRP_KEYSTORE_BASE64: ${{ secrets.ABRP_KEYSTORE_BASE64 }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Skip if nothing changed since the last nightly
+        id: guard
+        run: |
+          # A scheduled run on an unchanged tree would publish an identical APK daily.
+          last=$(git tag -l 'nightly-*' --sort=-creatordate | head -1)
+          if [ -n "$last" ] && [ -z "$(git log "$last"..HEAD --oneline)" ]; then
+            echo "No commits since $last — skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-java@v4
+        if: steps.guard.outputs.skip != 'true'
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Gradle
+        if: steps.guard.outputs.skip != 'true'
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Decode signing keystore
+        if: ${{ steps.guard.outputs.skip != 'true' && env.ABRP_KEYSTORE_BASE64 != '' }}
+        run: |
+          printf '%s' "$ABRP_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > "$RUNNER_TEMP/abrp.keystore"
+          if [ "$(head -c1 "$RUNNER_TEMP/abrp.keystore" | od -An -tx1 | tr -d ' ')" != "30" ]; then
+            echo "::error::ABRP_KEYSTORE_BASE64 is invalid. Recreate it with: base64 -w0 abrp.keystore"
+            exit 1
+          fi
+          echo "ABRP_KEYSTORE=$RUNNER_TEMP/abrp.keystore" >> "$GITHUB_ENV"
+
+      - name: Run checks
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          chmod +x gradlew
+          bash .github/security/check-permissions.sh
+          ./gradlew testNightlyDebugUnitTest lintNightlyDebug --no-daemon
+
+      - name: Build nightly release APK
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          ABRP_KEYSTORE_PASSWORD: ${{ secrets.ABRP_KEYSTORE_PASSWORD }}
+          ABRP_KEY_ALIAS: ${{ secrets.ABRP_KEY_ALIAS }}
+          ABRP_KEY_PASSWORD: ${{ secrets.ABRP_KEY_PASSWORD }}
+        run: ./gradlew assembleNightlyRelease --no-daemon
+
+      - name: Collect APK
+        if: steps.guard.outputs.skip != 'true'
+        run: |
+          mkdir -p dist
+          find app/build/outputs/apk -name "MG4AbrpTelemetry-nightly-*.apk" -exec cp {} dist/ \;
+          ls -la dist/
+
+      - name: Publish pre-release
+        if: steps.guard.outputs.skip != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          # The in-app updater compares this tag against the installed version, so it
+          # must stay parseable as a version.
+          tag_name: nightly-${{ github.run_number }}
+          name: Nightly ${{ github.run_number }}
+          prerelease: true
+          files: dist/*.apk
+          body: |
+            ## Nightly build ${{ github.run_number }}
+
+            Automated build from `main`. **Not tested on a vehicle.**
+
+            Installed nightlies update themselves from this channel. The updater accepts
+            an APK only over https from a GitHub host, and only if it is signed with the
+            same certificate as the running app — otherwise it deletes the file.
+
+            Commit: ${{ github.sha }}

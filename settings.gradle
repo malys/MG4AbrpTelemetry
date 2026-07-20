@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ABRP_Uploader"
+rootProject.name = "MG4AbrpTelemetry"
 include ':app'

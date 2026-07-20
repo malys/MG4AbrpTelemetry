@@ -1,0 +1,28 @@
+# Build output — regenerated, enormous, never worth reading.
+build/
+app/build/
+.gradle/
+.idea/
+*.iml
+
+# Local environment, secrets and signing material.
+local.properties
+mise.toml
+mise.local.toml
+*.keystore
+*.jks
+*.p12
+
+# Binary artefacts.
+*.apk
+*.aab
+*.dex
+*.so
+*.png
+*.jpg
+*.webp
+*.ttf
+
+# Generated reports.
+app/build/reports/
+*.sarif

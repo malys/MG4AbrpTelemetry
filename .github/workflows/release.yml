@@ -1,0 +1,85 @@
+name: Release
+
+# Stable channel. Tag push only — a stable APK is something a human decided to publish.
+# Stable builds carry NO self-update path (see the `stable` product flavor).
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and publish stable APK
+    runs-on: ubuntu-latest
+    env:
+      ABRP_KEYSTORE_BASE64: ${{ secrets.ABRP_KEYSTORE_BASE64 }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Decode signing keystore
+        if: ${{ env.ABRP_KEYSTORE_BASE64 != '' }}
+        run: |
+          # Tolerate newlines in the secret; printf avoids a stray trailing newline.
+          printf '%s' "$ABRP_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > "$RUNNER_TEMP/abrp.keystore"
+          # A PKCS12/JKS keystore starts with 0x30 (DER SEQUENCE); anything else is corrupt.
+          if [ "$(head -c1 "$RUNNER_TEMP/abrp.keystore" | od -An -tx1 | tr -d ' ')" != "30" ]; then
+            echo "::error::ABRP_KEYSTORE_BASE64 is invalid. Recreate it with: base64 -w0 abrp.keystore"
+            exit 1
+          fi
+          echo "ABRP_KEYSTORE=$RUNNER_TEMP/abrp.keystore" >> "$GITHUB_ENV"
+
+      - name: Run checks before publishing
+        run: |
+          chmod +x gradlew
+          bash .github/security/check-permissions.sh
+          ./gradlew testStableDebugUnitTest lintStableDebug --no-daemon
+
+      - name: Build stable release APK
+        env:
+          ABRP_KEYSTORE_PASSWORD: ${{ secrets.ABRP_KEYSTORE_PASSWORD }}
+          ABRP_KEY_ALIAS: ${{ secrets.ABRP_KEY_ALIAS }}
+          ABRP_KEY_PASSWORD: ${{ secrets.ABRP_KEY_PASSWORD }}
+        run: ./gradlew assembleStableRelease --no-daemon
+
+      - name: Collect APK
+        run: |
+          mkdir -p dist
+          find app/build/outputs/apk -name "MG4AbrpTelemetry-stable-*.apk" -exec cp {} dist/ \;
+          ls -la dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mg4-abrp-telemetry-stable
+          path: dist/*.apk
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          prerelease: false
+          files: dist/*.apk
+          body: |
+            ## MG4 ABRP Telemetry ${{ github.ref_name }} — stable
+
+            Manual install. This build has **no auto-update**: nothing in it contacts a
+            release server or downloads an APK.
+
+            If you want builds that update themselves, use a
+            [nightly pre-release](../../releases) instead — at that channel's risk.
+
+            ### Install
+            Copy the APK to a USB stick, open the Files app on the car and tap it.
+            See the README for how to reach the Files app on an MG4.

@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">ABRP Uploader</string>
+    <string name="app_name">MG4 ABRP Telemetry</string>
 
     <!-- Main screen -->
     <string name="card_config">Configuration</string>

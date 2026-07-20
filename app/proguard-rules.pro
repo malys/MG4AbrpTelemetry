@@ -9,12 +9,12 @@
 
 # The adapter itself: it defines the dynamic-proxy callback interfaces the framework
 # invokes back into, which R8 cannot trace.
--keep class com.leonkernan.abrp_uploader.CarPropertyAdapter { *; }
--keep interface com.leonkernan.abrp_uploader.CarPropertyAdapter$* { *; }
+-keep class com.mg4.abrptelemetry.CarPropertyAdapter { *; }
+-keep interface com.mg4.abrptelemetry.CarPropertyAdapter$* { *; }
 
 # Components named from the manifest.
--keep class com.leonkernan.abrp_uploader.AbrpUploadService { *; }
--keep class com.leonkernan.abrp_uploader.BootReceiver { *; }
+-keep class com.mg4.abrptelemetry.AbrpUploadService { *; }
+-keep class com.mg4.abrptelemetry.BootReceiver { *; }
 
 # EncryptedSharedPreferences (androidx.security) pulls Tink in via reflection.
 -keep class com.google.crypto.tink.** { *; }
