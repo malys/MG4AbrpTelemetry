@@ -246,8 +246,8 @@ public class MainActivity extends AppCompatActivity {
         for (int i = 0; i < UploadSettings.INTERVAL_CHOICES_SEC.length; i++) {
             int sec = UploadSettings.INTERVAL_CHOICES_SEC[i];
             labels[i] = sec >= 60
-                    ? getString(R.string.interval_minutes, sec / 60)
-                    : getString(R.string.interval_seconds, sec);
+                    ? getResources().getQuantityString(R.plurals.interval_minutes, sec / 60, sec / 60)
+                    : getResources().getQuantityString(R.plurals.interval_seconds, sec, sec);
             if (sec == current.intervalSec) selected = i;
         }
         ArrayAdapter<String> adapter = new ArrayAdapter<>(

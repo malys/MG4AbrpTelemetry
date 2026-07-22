@@ -33,8 +33,14 @@
     <string name="hint_frequency">Applies while driving. Parked and unplugged, the app backs off to one upload every 15 minutes on its own.</string>
     <string name="label_boost_low_soc">Upload more often at low battery</string>
     <string name="label_low_soc_threshold">Low battery threshold (%)</string>
-    <string name="interval_seconds">Every %1$d seconds</string>
-    <string name="interval_minutes">Every %1$d minutes</string>
+    <plurals name="interval_seconds">
+        <item quantity="one">Every %1$d second</item>
+        <item quantity="other">Every %1$d seconds</item>
+    </plurals>
+    <plurals name="interval_minutes">
+        <item quantity="one">Every %1$d minute</item>
+        <item quantity="other">Every %1$d minutes</item>
+    </plurals>
 
     <!-- Service state -->
     <string name="state_stopped">Stopped</string>
