@@ -36,7 +36,17 @@ public class CarPropertyAdapter {
         void onDisconnected();
     }
 
-    // Confirmed property IDs for this vehicle (AAOS 9, SAIC platform)
+    // Confirmed property IDs for this vehicle (AAOS 9, SAIC platform).
+    //
+    // Provenance: reverse-engineered from the MG4 (eh32) "R69" distribution, firmware
+    // build SWI68-29958-1300R69 — the same ROM the apks/ reference dump was decompiled
+    // from. The vendor-space IDs below (0x216xxxxx / 0x214xxxxx) are OEM-specific and only
+    // known-valid for this firmware generation (SWI68). MG4 ships several generations
+    // (SWI68/69/131/132/133/165) and the sibling MG4Control project branches its vehicle
+    // calls per generation; this app does not. On a different firmware these vendor reads
+    // may return nothing — which is handled safely (the getters return null and the field
+    // is omitted, see T-913), but SOC and range would then be silently absent. Re-confirm
+    // the vendor IDs on any other generation with VhalProbe (debug builds).
     public static final int PROP_OUTSIDE_TEMP   = 0x15602511; // float °C, area 117
     public static final int PROP_VEHICLE_SPEED  = 0x11600207; // float km/h, area 0
     public static final int PROP_GEAR_SELECTION = 0x11400400; // int (VehicleGear), area 0

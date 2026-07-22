@@ -62,6 +62,14 @@ MG4 infotainment ships as SWI68 / SWI69 / SWI131 / SWI132 / SWI133 / SWI165, and
 differ. Property IDs confirmed on one generation are not universal. Anything vehicle-facing
 must tolerate a property simply not existing.
 
+**Reference firmware: `SWI68-29958-1300R69`.** Every vendor property ID in
+`CarPropertyAdapter` was reverse-engineered from this exact ROM — the SWI68 "R69"
+distribution, which is also what the workspace `apks/` dump was decompiled from. So the
+`0x216xxxxx` / `0x214xxxxx` IDs (SOC, range) are confirmed for **SWI68 only**. Unlike
+MG4Control, this app does not branch per generation, so on another firmware those reads
+may silently return nothing (handled safely — the field is omitted — but SOC/range would
+be missing). Re-confirm with `VhalProbe` before trusting the IDs on any other generation.
+
 ## Working here
 
 ```bash
