@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="120" viewBox="0 0 480 120" role="img" aria-label="MG4 ABRP Telemetry">
+  <rect x="1" y="1" width="478" height="118" rx="16" fill="#12161a" stroke="#232a31" stroke-width="2"/>
+  <!-- icon: route waypoints + upload signal (live telemetry) -->
+  <g transform="translate(30,24)" fill="none" stroke="#4FC3F7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 58 C 26 58, 26 30, 40 30 S 54 58, 68 30"/>
+  </g>
+  <circle cx="42" cy="54" r="6" fill="#4FC3F7"/>
+  <circle cx="98" cy="54" r="7" fill="#6bd68a"/>
+  <g transform="translate(88,20)" fill="none" stroke="#6bd68a" stroke-width="3.5" stroke-linecap="round">
+    <path d="M2 14 a12 12 0 0 1 20 0 M6 10 a7 7 0 0 1 12 0"/>
+  </g>
+  <!-- wordmark -->
+  <text x="128" y="52" font-family="'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="30" font-weight="700" fill="#eef2f5">MG4<tspan fill="#4FC3F7"> ABRP</tspan> Telemetry</text>
+  <text x="129" y="78" font-family="'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="15" fill="#9aa4ad">Live vehicle telemetry → A Better Route Planner</text>
+  <text x="129" y="97" font-family="'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="12" fill="#5b6670">Read-only · SWI68 · MG4 (eh32) R69</text>
+</svg>

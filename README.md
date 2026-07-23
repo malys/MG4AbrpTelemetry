@@ -1,5 +1,7 @@
 # MG4 ABRP Telemetry
 
+<p align="center"><img src="docs/logo.svg" width="440" alt="MG4 ABRP Telemetry"></p>
+
 [![Tests](https://github.com/malys/MG4AbrpTelemetry/actions/workflows/tests.yml/badge.svg)](https://github.com/malys/MG4AbrpTelemetry/actions/workflows/tests.yml)
 [![Security](https://github.com/malys/MG4AbrpTelemetry/actions/workflows/security.yml/badge.svg)](https://github.com/malys/MG4AbrpTelemetry/actions/workflows/security.yml)
 [![Unstable](https://github.com/malys/MG4AbrpTelemetry/actions/workflows/unstable.yml/badge.svg)](https://github.com/malys/MG4AbrpTelemetry/actions/workflows/unstable.yml)
