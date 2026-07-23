@@ -154,6 +154,21 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md). Short version: this code runs on a mov
 vehicle, so changes need tests and a clear account of what you verified on a car and what
 you did not.
 
+## The MG4 app suite
+
+Part of a small set of projects for the SAIC MG4 (AAOS 9, MT2712), all sharing the
+**MG4Hardware** vehicle layer:
+
+| Project | Role |
+|---|---|
+| [MG4Hardware](https://github.com/malys/MG4Hardware) | Shared vehicle-access layer: reflection hardware layer, 0 km/h safety gate, driving models, condition/action catalogue + firmware matrix |
+| [MG4Control](https://github.com/malys/MG4Control) | Drive-profile manager; applies settings at startup; owns the signature-protected TaskerBridge |
+| [MG4Tasker](https://github.com/malys/MG4Tasker) | Rule engine — *when* conditions *then* actions — driving the car through MG4Control |
+| [MG4AbrpTelemetry](https://github.com/malys/MG4AbrpTelemetry) | Live telemetry uploader to A Better Route Planner |
+
+Common toolchain: **AGP 9.1.1 / Gradle 9.3.1 / compileSdk 36 / JDK 17**. Each app consumes
+MG4Hardware as a git submodule (`MG4Hardware/lib` as the `:mg4hardware` subproject).
+
 ## Legal
 
 - [`DISCLAIMER.md`](DISCLAIMER.md) — no warranty, no liability, not affiliated with the
