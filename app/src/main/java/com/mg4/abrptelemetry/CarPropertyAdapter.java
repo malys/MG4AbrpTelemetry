@@ -100,6 +100,16 @@ public class CarPropertyAdapter {
     public void connect(Context context) {
         appContext = context.getApplicationContext();
 
+        // The vendor property IDs below are known-valid for SWI68 only. Use the shared
+        // MG4Hardware firmware detection to warn when running on another generation, where
+        // these reads may return wrong or empty values (this app does not branch per gen).
+        com.mg4.hardware.FirmwareInfo firmwareInfo = com.mg4.hardware.FirmwareInfo.INSTANCE;
+        com.mg4.hardware.FirmwareInfo.Gen gen = firmwareInfo.getGeneration();
+        if (gen != com.mg4.hardware.FirmwareInfo.Gen.SWI68) {
+            Log.w(TAG, "Firmware is " + gen + " — vendor reads are validated for SWI68 only; "
+                    + "telemetry values may be wrong. Detected: " + firmwareInfo.getDetectedString());
+        }
+
         try {
             carClass = Class.forName("android.car.Car");
             cpmClass = Class.forName("android.car.hardware.property.CarPropertyManager");
